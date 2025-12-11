@@ -23,5 +23,5 @@ pip install -r requirements.txt
 This will automatically install all modules needed to run the example files.
 These can then be run by:
 ```
-python examples/mobile_reacher_example.py
+python examples/robot_class.py
 ```

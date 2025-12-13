@@ -20,8 +20,23 @@ Next, install the requirements needed to run this project:
 ```
 pip install -r requirements.txt
 ```
-This will automatically install all modules needed to run the example files.
+This will automatically install all modules needed to run the simulation.
 These can then be run by:
 ```
-python examples/robot_class.py
+python main.py
 ```
+
+## Architecture
+
+The project follows a modular architecture with clear separation of concerns:
+
+<p align="center">
+  <img src="images/UML.png" alt="UML Class Diagram" width="600">
+</p>
+
+### Core Components
+
+- **RRTPlanner**: Pure path planning component that computes collision-free paths from start to target using RRT algorithm
+- **PathFollower**: Control component that generates robot actions to follow a given path
+- **ObstacleManager**: Manages 3D obstacles and provides 2D projections for path planning
+- **PathVisualizer**: Visualization component for displaying paths and obstacles in 2D

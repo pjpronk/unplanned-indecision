@@ -21,7 +21,6 @@ def run_mobile_reacher(n_steps=10000, render=False, goal=True, obstacles=True):
     
     # Create RRT Planner
     planner = RRTPlanner(
-        goal=target_position,
         obstacles=obstacles_2d
     )
     
@@ -52,7 +51,7 @@ def run_mobile_reacher(n_steps=10000, render=False, goal=True, obstacles=True):
         initial_pos = np.array(ob['robot_0']['joint_state']['position'][:2])
     
     # Plan path once from start to goal
-    current_path = planner.plan_path(initial_pos)
+    current_path = planner.plan_path(initial_pos, target_position)
     print(f"Initial path planned with {len(current_path)} waypoints")
     
     # Visualize the path before starting simulation

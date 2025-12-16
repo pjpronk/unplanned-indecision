@@ -1,5 +1,5 @@
 import numpy as np
-from classes import RRTPlanner, PathFollower, ObstacleManager, PathVisualizer
+from classes import RRTPlanner, PathFollower, ObstacleManager, PathVisualizer, PlaygroundEnv
 
 from urdfenvs.robots.generic_urdf import GenericUrdfReacher
 from urdfenvs.urdf_common.urdf_env import UrdfEnv
@@ -14,8 +14,9 @@ def run_mobile_reacher(n_steps=10000, render=False, goal=True, obstacles=True):
     action_size = 12
     
     # Create obstacle manager
-    obstacle_manager = ObstacleManager()
-    
+    obstacle_manager = PlaygroundEnv(robot=model, render=render)
+    env = obstacle_manager.env
+
     # Get 2D obstacles for path planning
     obstacles_2d = obstacle_manager.get_2d_obstacles()
     
@@ -34,13 +35,13 @@ def run_mobile_reacher(n_steps=10000, render=False, goal=True, obstacles=True):
     visualizer = PathVisualizer(obstacles_2d, target_position)
     
     # Create URDF environment
-    env: UrdfEnv = UrdfEnv(
-        dt=0.01, robots=[model], render=render, num_sub_steps=200,
-    )
+    # env: UrdfEnv = UrdfEnv(
+    #     dt=0.01, robots=[model], render=render, num_sub_steps=200,
+    # )
 
     # Add obstacles to the URDF environment
-    if obstacles:
-        obstacle_manager.add_to_urdf_env(env)
+    # if obstacles:
+    #     obstacle_manager.add_to_urdf_env(env)
     
     ob = env.reset()
     history = []

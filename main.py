@@ -9,13 +9,15 @@ def run_mobile_reacher(n_steps=10000, render=False, goal=True, obstacles=True):
     model = GenericUrdfReacher(urdf="mobilePanda_with_gripper.urdf", mode="vel")       
     
     # Target position (2D: x, y)
-    target_position = np.array([2.0, -0.5])
+    target_position = np.array([9,4.5,0])
     forward_velocity = 0.5  # Base forward velocity (m/s)
     action_size = 12
     
     # Create obstacle manager
-    obstacle_manager = PlaygroundEnv(robot=model, render=render)
+    obstacle_manager = PlaygroundEnv(robot=model, render=render, random=True, 
+                                     end_pos=[target_position[0], target_position[1], 0])
     env = obstacle_manager.env
+
 
     # Get 2D obstacles for path planning
     obstacles_2d = obstacle_manager.get_2d_obstacles()

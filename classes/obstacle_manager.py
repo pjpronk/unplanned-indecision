@@ -2,6 +2,7 @@ import numpy as np
 from mpscenes.obstacles.sphere_obstacle import SphereObstacle
 from mpscenes.obstacles.box_obstacle import BoxObstacle
 from mpscenes.obstacles.cylinder_obstacle import CylinderObstacle
+import pybullet as p
 
 
 class ObstacleManager:
@@ -55,7 +56,46 @@ class ObstacleManager:
         }
         cylinder_obst = CylinderObstacle(name="cylinder_1", content_dict=cylinder_obst_dict)
         self.obstacles_3d.append(cylinder_obst)
+
+        #Shelf obstacle
+        shelf_obst_dict = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": [2.5, -1.5, 0.6],  # Same X/Y as target, higher Z
+                "width": 0.1,                  # Wide enough to block top approach
+                "length": 0.1,
+                "height": 0.1,                 # Thin like a shelf
+            },
+            "rgba": [0.4, 0.4, 0.4, 1.0],      # Dark Grey
+        }
+        shelf_obst = BoxObstacle(name="shelf_1", content_dict=shelf_obst_dict)
+        self.obstacles_3d.append(shelf_obst)
     
+    def add_target_visual(self, position, size=0.05, rgba=(1.0, 0.0, 1.0, 0.6)):
+        """
+        Spawns a *visual-only* pink cube in PyBullet (no collision shape).
+        Returns the PyBullet body_id of the visual marker.
+        """
+        half = size / 2.0
+
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_BOX,
+            halfExtents=[half, half, half],
+            rgbaColor=rgba
+        )
+
+        # baseCollisionShapeIndex = -1  means no collision at all
+        body_id = p.createMultiBody(
+            baseMass=0.0,
+            baseVisualShapeIndex=visual_shape_id,
+            baseCollisionShapeIndex=-1,
+            basePosition=position,
+            baseOrientation=[0, 0, 0, 1]
+        )
+
+        return body_id
+
     def get_3d_obstacles(self):
         """
         Get list of 3D obstacle objects.
@@ -105,6 +145,7 @@ class ObstacleManager:
         
         return obstacles_2d
     
+
     def add_to_urdf_env(self, urdf_env):
         """
         Add all obstacles to a URDF environment.

@@ -6,9 +6,11 @@ from typing import List, Dict, Any, Tuple
 Point = Tuple[float, float]
 
 class Node:
-    def __init__(self, p: Point):
+    def __init__(self, p: Point, parent=None, cost: float = 0.0):
         self.p = p
-        self.parent = None
+        self.parent = parent
+        self.cost = cost  # cost-to-come from start
+
 
 
 class RRTPlanner:
@@ -50,7 +52,7 @@ class RRTPlanner:
         goal_sample_rate = getattr(self, "goal_sample_rate", 0.10)
         goal_tolerance = getattr(self, "goal_threshold", self.goal_threshold)
         max_iters = getattr(self, "max_iterations", self.max_iterations)
-        robot_radius = getattr(self, "robot_radius", 0.0)
+        robot_radius = getattr(self, "robot_radius", 0.25)
         seed = getattr(self, "seed", None)
 
         if seed is not None:
@@ -67,14 +69,23 @@ class RRTPlanner:
         if self._segment_hits_any_obstacle(goal_p, goal_p, obstacles, robot_radius):
             raise ValueError("Goal is in collision.")
 
-        nodes: List[Node] = [Node(start_p)]
+        nodes: List[Node] = [Node(start_p, parent=None, cost=0.0)]
+
+
+        best_path = None
+        best_cost = None
 
         for _ in range(max_iters):
             # Sample
             if random.random() < goal_sample_rate:
                 q_rand = goal_p
             else:
-                q_rand = (random.uniform(xmin, xmax), random.uniform(ymin, ymax))
+                if best_cost is None:
+                    # No solution yet: sample globally
+                    q_rand = (random.uniform(xmin, xmax), random.uniform(ymin, ymax))
+                else:
+                    # Have a solution: sample inside the informed ellipse
+                    q_rand = self._sample_in_informed_ellipse(start_p, goal_p, best_cost)
 
             # Extend
             i_near = self._nearest(nodes, q_rand)
@@ -86,32 +97,78 @@ class RRTPlanner:
                 continue
 
             # append node
-            nodes.append(Node(q_new))
-            nodes[-1].parent = i_near
+                        # --- RRT* radius (2D) ---
+            n = len(nodes)
+            gamma = getattr(self, "rrt_star_gamma", 1.0)  # tuning knob
+            radius = gamma * math.sqrt(max(math.log(n + 1) / (n + 1), 1e-9))
+            radius = min(radius, 5.0 * step_size)  # practical cap
+
+            near_inds = self._near(nodes, q_new, radius)
+            if i_near not in near_inds:
+                near_inds.append(i_near)
+
+            # Choose best parent among near nodes (collision-free)
+            best_parent = i_near
+            best_cost_to_new = nodes[i_near].cost + RRTPlanner._dist(nodes[i_near].p, q_new)
+
+            for j in near_inds:
+                cand_cost = nodes[j].cost + RRTPlanner._dist(nodes[j].p, q_new)
+                if cand_cost < best_cost_to_new:
+                    if not self._segment_hits_any_obstacle(nodes[j].p, q_new, obstacles, robot_radius):
+                        best_parent = j
+                        best_cost_to_new = cand_cost
+
+            nodes.append(Node(q_new, parent=best_parent, cost=best_cost_to_new))
             new_i = len(nodes) - 1
 
+
+            # Rewire neighbors through the new node if cheaper
+            for j in near_inds:
+                if j == new_i:
+                    continue
+                new_cost_to_j = nodes[new_i].cost + RRTPlanner._dist(nodes[new_i].p, nodes[j].p)
+                if new_cost_to_j < nodes[j].cost:
+                    if not self._segment_hits_any_obstacle(nodes[new_i].p, nodes[j].p, obstacles, robot_radius):
+                        nodes[j].parent = new_i
+                        nodes[j].cost = new_cost_to_j
+
+
             # Try connect to goal
+# Try connect to goal (update best solution, but keep searching)
             if RRTPlanner._dist(q_new, goal_p) <= goal_tolerance:
                 if not self._segment_hits_any_obstacle(q_new, goal_p, obstacles, robot_radius):
-                    nodes.append(Node(goal_p))
-                    nodes[-1].parent = new_i
-                    goal_i = len(nodes) - 1
-
-                    # Reconstruct waypoints
+                    # Temporarily add goal to reconstruct a candidate path
+                                        # Reconstruct candidate waypoints by backtracking from new_i, then add goal
                     waypoints: List[Point] = []
-                    cur = goal_i
+                    cur = new_i
+                    seen = set()
                     while cur is not None:
+                        if cur in seen:
+                            waypoints = None
+                            break
+                        seen.add(cur)
                         waypoints.append(nodes[cur].p)
                         cur = nodes[cur].parent
-                    waypoints.reverse()
 
-                    # store and return as list of numpy arrays for compatibility
-                    path = [np.array(p) for p in waypoints]
-                    self.current_path = path
-                    return path
+                    if waypoints is None:
+                        continue
+                    waypoints.reverse()
+                    waypoints.append(goal_p)
+
+                    candidate_cost = RRTPlanner._path_cost(waypoints)
+
+                    if (best_cost is None) or (candidate_cost < best_cost):
+                        best_cost = candidate_cost
+                        best_path = [np.array(p) for p in waypoints]
+                        self.current_path = best_path
+
+                    # NOTE: keep the goal node in the tree (simple + works fine)
+                    # and continue searching for improvements
+                    continue
 
         # failed to find path
-        return None
+        return best_path
+
 
     @staticmethod
     def _as_point(xy) -> Point:
@@ -231,6 +288,16 @@ class RRTPlanner:
         ux, uy = (to_p[0] - from_p[0]) / d, (to_p[1] - from_p[1]) / d
         return (from_p[0] + step_size * ux, from_p[1] + step_size * uy)
 
+    def _near(self, nodes: List[Node], p: Point, radius: float) -> List[int]:
+        r2 = radius * radius
+        out = []
+        for i, n in enumerate(nodes):
+            dx = n.p[0] - p[0]
+            dy = n.p[1] - p[1]
+            if dx * dx + dy * dy <= r2:
+                out.append(i)
+        return out
+
 
     def _nearest(self, nodes: List[Node], p: Point) -> int:
         best_i = 0
@@ -241,3 +308,59 @@ class RRTPlanner:
                 best_d = d
                 best_i = i
         return best_i
+
+    @staticmethod
+    def _path_cost(waypoints: List[Point]) -> float:
+            """Sum of Euclidean segment lengths along a waypoint list."""
+            if len(waypoints) < 2:
+                return 0.0
+            c = 0.0
+            for i in range(len(waypoints) - 1):
+                c += RRTPlanner._dist(waypoints[i], waypoints[i + 1])
+            return c
+
+    def _sample_in_informed_ellipse(self, start: Point, goal: Point, c_best: float) -> Point:
+            """
+            Sample uniformly-ish inside the 2D informed set (ellipse):
+                dist(start, x) + dist(x, goal) <= c_best
+
+            This uses a standard trick:
+            - sample uniformly in unit disk
+            - scale by ellipse radii
+            - rotate to align with start->goal
+            - translate to ellipse center
+            """
+            # Minimum possible path cost is straight-line distance
+            c_min = RRTPlanner._dist(start, goal)
+
+            # If we don't have slack (or numerical issues), fall back to goal-biased-ish sampling
+            if c_best <= c_min + 1e-12:
+                return goal
+
+            # Ellipse parameters
+            center = ((start[0] + goal[0]) * 0.5, (start[1] + goal[1]) * 0.5)
+
+            # Semi-major axis a and semi-minor axis b
+            a = c_best * 0.5
+            b = math.sqrt(max(a * a - (c_min * 0.5) ** 2, 0.0))
+
+            # Rotation to align ellipse with the line start->goal
+            theta = math.atan2(goal[1] - start[1], goal[0] - start[0])
+            cos_t, sin_t = math.cos(theta), math.sin(theta)
+
+            # Sample uniformly in unit disk (r = sqrt(u) trick)
+            u = random.random()
+            v = random.random()
+            r = math.sqrt(u)
+            ang = 2.0 * math.pi * v
+            xd = r * math.cos(ang)
+            yd = r * math.sin(ang)
+
+            # Scale to ellipse
+            xe = a * xd
+            ye = b * yd
+
+            # Rotate + translate
+            x = cos_t * xe - sin_t * ye + center[0]
+            y = sin_t * xe + cos_t * ye + center[1]
+            return (x, y)

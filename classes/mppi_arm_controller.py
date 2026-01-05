@@ -11,32 +11,40 @@ class MppiArmController:
     - Draws the best rollout (green) + a few colliding rollouts (red).
     """
 
-    def __init__(self, robot_id, dt=0.05, horizon=30, n_samples=30):
+    # Adaptive exploration constants
+    SIGMA_MIN_FACTOR = 0.3      # Minimum exploration (when close to target)
+    SIGMA_MAX_FACTOR = 1.0      # Maximum exploration (when far from target)
+    ADAPTIVE_DISTANCE = 0.5     # Distance threshold for adaptive scaling (meters)
+    
+    # Warm-start threshold
+    TARGET_CHANGE_THRESHOLD = 0.01  # Re-initialize if target moves >1cm
+    
+    # Visualization constants
+    MAX_COLLISION_PATHS_DRAWN = 3
+    ROLLOUT_STRIDE = 3
+    DEBUG_LINE_LIFETIME = 0.2
+
+    def __init__(self, robot_id, robot_config, dt=0.05, horizon=30, n_samples=30):
         self.robot_id = robot_id
+        self.config = robot_config
 
         # MPPI parameters
         self.dt = dt
         self.H = horizon
         self.K = n_samples
-        self.dof = 7
         self.lambda_ = 0.001
-        self.sigma = 0.3
+        self.sigma = 0.5  # Base exploration noise
 
         # Cost weights
-        self.dist_weight = 10.0
+        self.dist_weight = 100.0
         self.collision_cost = 10_000.0
-        self.jerk_weight = 1.0
-
-        # Robot indexing (matches your URDF setup)
-        self.arm_indices = [4, 5, 6, 7, 8, 9, 10]  # joints j1..j7
-        self.ee_idx = 11                           # end-effector link index
-
-        # Joint limits
-        self.joint_limits_lower = np.array([-5.89, -3.76, -2.89, -3.07, -2.89, -0.01, -2.89])
-        self.joint_limits_upper = np.array([ 5.89,  3.76,  2.89, -0.06,  2.89,  3.75,  2.89])
+        self.jerk_weight = 0.5
 
         # Nominal control sequence (warm-started across calls)
-        self.U = np.zeros((self.H, self.dof))
+        self.U = np.zeros((self.H, self.config.ARM_DOF))
+        
+        # Track previous target for re-initialization detection
+        self.prev_target = None
 
     def compute_action(self, current_q, target_pos, target_body_id=None):
         """
@@ -45,57 +53,104 @@ class MppiArmController:
         target_body_id is optional: if provided, contacts with that body are ignored.
         (With Fix A, the target marker has no collision shape anyway.)
         """
-        # Save/restore simulator state so rollouts don't affect the real simulation.
+        # Warm-start control sequence with IK if target changed or first call
+        target_array = np.array(target_pos)
+        if self._should_reinitialize(target_array):
+            self._warm_start_with_ik(current_q, target_pos)
+            self.prev_target = target_array.copy()
+        
+        # Calculate adaptive exploration based on distance to target
+        adaptive_sigma = self._calculate_adaptive_sigma(target_array)
+        
+        # Generate noise for all rollouts
+        noise = np.random.normal(0.0, adaptive_sigma, size=(self.K, self.H, self.config.ARM_DOF))
+        
+        # Perform rollouts and calculate costs
+        rollout_paths, collision_mask, costs = self._perform_rollouts(
+            current_q, target_array, noise, target_body_id
+        )
+        
+        # Update control sequence using MPPI
+        action = self._update_control_sequence(costs, noise)
+        
+        # Visualize rollouts
+        best_k = int(np.argmin(costs))
+        self._draw_rollouts(paths=rollout_paths, collision_mask=collision_mask, best_k=best_k)
+        
+        return action
+    
+    def _should_reinitialize(self, target_array: np.ndarray) -> bool:
+        """Check if control sequence should be re-initialized with IK."""
+        if self.prev_target is None:
+            return True
+        target_moved = np.linalg.norm(target_array - self.prev_target) > self.TARGET_CHANGE_THRESHOLD
+        return target_moved
+    
+    def _calculate_adaptive_sigma(self, target_array: np.ndarray) -> float:
+        """Calculate adaptive exploration noise based on distance to target."""
+        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+        dist_to_target = np.linalg.norm(current_ee_pos - target_array)
+        
+        # Scale from SIGMA_MIN_FACTOR (close) to SIGMA_MAX_FACTOR (far)
+        scale_factor = self.SIGMA_MIN_FACTOR + (self.SIGMA_MAX_FACTOR - self.SIGMA_MIN_FACTOR) * \
+                      min(dist_to_target / self.ADAPTIVE_DISTANCE, 1.0)
+        
+        return self.sigma * scale_factor
+    
+    def _perform_rollouts(self, current_q, target_array, noise, target_body_id):
+        """
+        Perform K rollout simulations and calculate costs.
+        Returns: (rollout_paths, collision_mask, costs)
+        """
+        # Save/restore simulator state so rollouts don't affect the real simulation
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         state_id = p.saveState()
 
-        noise = np.random.normal(0.0, self.sigma, size=(self.K, self.H, self.dof))
         costs = np.zeros(self.K)
-
-        # Store EE paths for drawing (K rollouts, H steps, 3D point)
         rollout_paths = np.zeros((self.K, self.H, 3))
         collision_mask = np.zeros(self.K, dtype=bool)
 
         for k in range(self.K):
             self._reset_arm(current_q)
-            u_prev = np.zeros(self.dof)
+            u_prev = np.zeros(self.config.ARM_DOF)
 
             for t in range(self.H):
                 u_t = np.clip(self.U[t] + noise[k, t], -1.0, 1.0)
                 self._step_kinematics(u_t)
-
-                # Make sure contact queries reflect the new joint states
                 p.performCollisionDetection()
 
-                ee_pos = np.array(p.getLinkState(self.robot_id, self.ee_idx)[0])
+                ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
                 rollout_paths[k, t] = ee_pos
 
-                dist = np.linalg.norm(ee_pos - np.array(target_pos))
+                dist = np.linalg.norm(ee_pos - target_array)
                 collided, hit_body_id = self._check_collision(target_body_id)
 
                 if collided:
                     collision_mask[k] = True
-                    # Note: this can be spammy; kept because your original code prints.
-                    print(f"CRASH: Hit object ID {hit_body_id}")
+                    if k == 0:  # Only print for first rollout
+                        print(f"CRASH: Hit object ID {hit_body_id}")
 
                 jerk = np.linalg.norm(u_t - u_prev)
                 u_prev = u_t
 
+                # Exponential distance cost for better gradient near target
+                dist_cost = self.dist_weight * (dist + 0.1 * dist**2)
+                
                 costs[k] += (
-                    self.dist_weight * dist
+                    dist_cost
                     + (self.collision_cost if collided else 0.0)
                     + self.jerk_weight * jerk
                 )
 
-        # Restore the real world state before returning an action.
+        # Restore the real world state
         p.restoreState(state_id)
         p.removeState(state_id)
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
-
-        best_k = int(np.argmin(costs))
-        self._draw_rollouts(paths=rollout_paths, collision_mask=collision_mask, best_k=best_k)
-
-        # MPPI update: weight rollouts by cost and shift the control sequence forward.
+        
+        return rollout_paths, collision_mask, costs
+    
+    def _update_control_sequence(self, costs, noise):
+        """Update control sequence using MPPI weighted average and return first action."""
         min_cost = float(np.min(costs))
         weights = np.exp(-(costs - min_cost) / self.lambda_)
         weights /= (np.sum(weights) + 1e-10)
@@ -108,6 +163,39 @@ class MppiArmController:
         self.U[-1] = 0.0
 
         return action
+
+    def _warm_start_with_ik(self, current_q, target_pos):
+        """
+        Warm-start the control sequence using IK-based velocities.
+        Calculates desired joint configuration and initializes velocities to move towards it.
+        """
+        # Use PyBullet IK to get target joint configuration
+        ik_solution = p.calculateInverseKinematics(
+            self.robot_id,
+            self.config.EE_LINK_INDEX,
+            target_pos,
+            maxNumIterations=100,
+            residualThreshold=0.001
+        )
+        
+        # Extract arm joints from IK solution
+        target_q = np.array(ik_solution[self.config.ARM_OBS_SLICE])
+        
+        # Clamp to joint limits
+        target_q = np.clip(target_q, self.config.ARM_JOINT_LIMITS_LOWER, self.config.ARM_JOINT_LIMITS_UPPER)
+        
+        # Calculate velocity needed to reach target over the horizon
+        delta_q = target_q - current_q
+        
+        # Initialize control sequence with decaying velocities toward target
+        for t in range(self.H):
+            # Decay factor: move quickly initially, slower later
+            decay = 1.0 - (t / self.H)
+            self.U[t] = (delta_q / (self.H * self.dt)) * decay
+            # Clip to action limits
+            self.U[t] = np.clip(self.U[t], -1.0, 1.0)
+        
+        print(f"Warm-started MPPI: current_q={current_q.round(2)}, target_q={target_q.round(2)}")
 
     # -----------------------
     # Collision + visualization
@@ -130,12 +218,13 @@ class MppiArmController:
             if target_body_id is not None and hit_body_id == target_body_id:
                 continue
 
-            # Ignore floor/plane (name check kept, as in your original code)
+            # Ignore floor/plane
             try:
                 name = p.getBodyInfo(hit_body_id)[1].decode("utf-8")
                 if name == "plane":
                     continue
-            except Exception:
+            except (IndexError, AttributeError, UnicodeDecodeError):
+                # Body might not have info or name field
                 pass
 
             return True, hit_body_id
@@ -155,18 +244,18 @@ class MppiArmController:
                 continue
             self._draw_single_path(paths[idx], color=[1, 0, 0], width=1.0)
             drawn += 1
-            if drawn >= 3:
+            if drawn >= self.MAX_COLLISION_PATHS_DRAWN:
                 break
 
-    def _draw_single_path(self, path, color, width, stride=3, life_time=0.2):
+    def _draw_single_path(self, path, color, width):
         """Draw a rollout path using debug lines (strided to reduce line count)."""
-        for t in range(0, self.H - stride, stride):
+        for t in range(0, self.H - self.ROLLOUT_STRIDE, self.ROLLOUT_STRIDE):
             p.addUserDebugLine(
                 lineFromXYZ=path[t],
-                lineToXYZ=path[t + stride],
+                lineToXYZ=path[t + self.ROLLOUT_STRIDE],
                 lineColorRGB=color,
                 lineWidth=width,
-                lifeTime=life_time,
+                lifeTime=self.DEBUG_LINE_LIFETIME,
             )
 
     # -----------------------
@@ -174,17 +263,23 @@ class MppiArmController:
     # -----------------------
 
     def _reset_arm(self, q):
-        """Reset arm joints to q (length 7)."""
-        for i, joint_idx in enumerate(self.arm_indices):
+        """Reset arm joints to q and grippers to closed position."""
+        # Reset arm joints
+        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
             p.resetJointState(self.robot_id, joint_idx, q[i])
+        
+        # Reset grippers to closed (0 position)
+        for gripper_idx in self.config.GRIPPER_JOINT_INDICES:
+            p.resetJointState(self.robot_id, gripper_idx, 0.0)
 
     def _step_kinematics(self, u):
         """
         Integrate joint velocities for one timestep and clamp to joint limits.
         This is a kinematic step (no dynamics).
         """
-        for i, joint_idx in enumerate(self.arm_indices):
+        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
             curr = p.getJointState(self.robot_id, joint_idx)[0]
             new_pos = curr + u[i] * self.dt
-            new_pos = np.clip(new_pos, self.joint_limits_lower[i], self.joint_limits_upper[i])
+            new_pos = np.clip(new_pos, self.config.ARM_JOINT_LIMITS_LOWER[i], 
+                             self.config.ARM_JOINT_LIMITS_UPPER[i])
             p.resetJointState(self.robot_id, joint_idx, new_pos)

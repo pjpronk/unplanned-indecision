@@ -28,7 +28,6 @@ class MissionConfig:
             forward_velocity=1.5
         )
 
-
 # --- Helper Functions ---
 def get_arm_joint_states(robot_id: int, robot_config) -> np.ndarray:
     """Extract current arm joint positions from PyBullet."""

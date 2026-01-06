@@ -20,7 +20,8 @@ class RRTPlanner:
     """
 
     def __init__(self, obstacles, step_size=0.1, max_iterations=1000, 
-                 goal_threshold=0.1):
+                 goal_threshold=0.1, bounds=(-3.0, 3.0, -3.0, 3.0), 
+                 robot_radius=0.3, goal_sample_rate=0.10):
         """
         Initialize RRT planner.
         
@@ -29,13 +30,18 @@ class RRTPlanner:
             step_size: Step size for RRT tree extension
             max_iterations: Maximum iterations for RRT algorithm
             goal_threshold: Distance threshold to consider goal reached
+            bounds: Tuple (x_min, x_max, y_min, y_max) defining planning bounds
+            robot_radius: Radius of the robot for collision checking
+            goal_sample_rate: Probability of sampling goal directly (0.0-1.0)
         """
         self.obstacles = obstacles
         self.step_size = step_size
         self.max_iterations = max_iterations
         self.goal_threshold = goal_threshold
-        self.current_path = None    
-
+        self.bounds = bounds
+        self.robot_radius = robot_radius
+        self.goal_sample_rate = goal_sample_rate
+        self.current_path = None   
     
     def plan_path(self, start, target):
         """Plan a path from start to target using RRT (2D).

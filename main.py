@@ -9,6 +9,7 @@ from classes import (RRTPlanner, PathFollower, PathVisualizer,
                      PlaygroundEnv, ArmController, MppiArmController, PandaConfig,
                      MissionStateMachine)
 
+
 @dataclass
 class MissionConfig:
     """Mission parameters for navigation and reaching."""

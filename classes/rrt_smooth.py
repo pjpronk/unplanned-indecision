@@ -19,29 +19,22 @@ class RRTPlanner:
     Independent of path following.
     """
 
-    def __init__(
-        self,
-        obstacles,
-        step_size=0.1,
-        max_iterations=1000,
-        goal_threshold=0.1,
-        bounds=(-3.0, 3.0, -3.0, 3.0),
-        robot_radius=0.0,
-        goal_sample_rate=0.10,
-        seed=None,
-        **kwargs
-    ):
+    def __init__(self, obstacles, step_size=0.1, max_iterations=1000, 
+                 goal_threshold=0.1):
+        """
+        Initialize RRT planner.
+        
+        Args:
+            obstacles: List of 2D obstacle dictionaries from ObstacleManager.get_2d_obstacles()
+            step_size: Step size for RRT tree extension
+            max_iterations: Maximum iterations for RRT algorithm
+            goal_threshold: Distance threshold to consider goal reached
+        """
         self.obstacles = obstacles
         self.step_size = step_size
         self.max_iterations = max_iterations
         self.goal_threshold = goal_threshold
-
-        self.bounds = bounds
-        self.robot_radius = robot_radius
-        self.goal_sample_rate = goal_sample_rate
-        self.seed = seed
-
-        self.current_path = None
+        self.current_path = None    
 
     
     def plan_path(self, start, target):
@@ -404,14 +397,16 @@ class RRTPlanner:
             if len(pts) < 3:
                 break
 
+            # pick two indices with at least one point between them
             i = random.randint(0, len(pts) - 3)
             j = random.randint(i + 2, len(pts) - 1)
 
             # If we can connect pts[i] directly to pts[j], remove the middle points
             if not self._segment_hits_any_obstacle(pts[i], pts[j], obstacles, robot_radius):
                 pts = pts[: i + 1] + pts[j:]
-        
-            return [np.array(p) for p in pts]
+
+        return [np.array(p) for p in pts]
+
 
     def _path_length(path):
         """Total Euclidean length of a 2D path."""

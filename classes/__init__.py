@@ -1,6 +1,6 @@
 from .obstacle_manager import ObstacleManager
 from .path_follower import PathFollower
-from .rrt_planner import RRTPlanner
+from .rrt_simple import RRTPlanner
 from .path_visualizer import PathVisualizer
 from .playground import PlaygroundEnv
 from .arm_controller import ArmController

@@ -176,9 +176,9 @@ class PlaygroundEnv:
                     "movable": True,
                     "geometry": {
                         "position": [
-                            float(7 + np.random.choice(random_offsets)),
                             float(4 + np.random.choice(random_offsets)),
-                            0.05
+                            float(1 + np.random.choice(random_offsets)),
+                            0.05 + i * 0.02
                         ],
                         "orientation": [float(np.random.choice(random_offsets)), 0, 0, 1],
                         "width": 0.2,

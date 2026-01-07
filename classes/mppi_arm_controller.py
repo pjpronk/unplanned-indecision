@@ -7,7 +7,8 @@ class MppiArmController:
     MPPI controller for a 7-DoF arm using a kinematic rollout model in PyBullet.
 
     - Rollouts are performed by resetting joint states (no dynamics).
-    - Cost = distance-to-target + collision penalty + jerk penalty.
+    - Cost = exponential distance-to-target + terminal cost + collision penalty + jerk penalty.
+    - Actions are scaled down when close to target to prevent overshoot.
     - Draws the best rollout (green) + a few colliding rollouts (red).
     """
 
@@ -37,8 +38,10 @@ class MppiArmController:
 
         # Cost weights
         self.dist_weight = 100.0
+        self.terminal_dist_weight = 500.0  # Heavier weight for final state
         self.collision_cost = 10_000.0
         self.jerk_weight = 0.5
+        self.exp_decay_rate = 5.0  # Exponential decay rate for distance cost
 
         # Nominal control sequence (warm-started across calls)
         self.U = np.zeros((self.H, self.config.ARM_DOF))
@@ -62,6 +65,10 @@ class MppiArmController:
         # Calculate adaptive exploration based on distance to target
         adaptive_sigma = self._calculate_adaptive_sigma(target_array)
         
+        # Calculate current distance to target for action scaling
+        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+        dist_to_target = np.linalg.norm(current_ee_pos - target_array)
+        
         # Generate noise for all rollouts
         noise = np.random.normal(0.0, adaptive_sigma, size=(self.K, self.H, self.config.ARM_DOF))
         
@@ -72,6 +79,13 @@ class MppiArmController:
         
         # Update control sequence using MPPI
         action = self._update_control_sequence(costs, noise)
+        
+        # Scale down action when close to target to avoid overshoot
+        # Use exponential decay: scale = 1.0 when far, approaches 0.1 when very close
+        close_threshold = 0.1  # meters
+        if dist_to_target < close_threshold:
+            action_scale = 0.1 + 0.9 * (dist_to_target / close_threshold)
+            action *= action_scale
         
         # Visualize rollouts
         best_k = int(np.argmin(costs))
@@ -133,8 +147,14 @@ class MppiArmController:
                 jerk = np.linalg.norm(u_t - u_prev)
                 u_prev = u_t
 
-                # Exponential distance cost for better gradient near target
-                dist_cost = self.dist_weight * (dist + 0.1 * dist**2)
+                # Exponential distance cost for stronger gradient near target
+                # exp(decay * dist) - 1 gives exponential growth, stronger near target
+                dist_cost = self.dist_weight * (np.exp(self.exp_decay_rate * dist) - 1.0)
+                
+                # Terminal cost: heavily penalize final state if far from target
+                if t == self.H - 1:
+                    terminal_cost = self.terminal_dist_weight * (np.exp(self.exp_decay_rate * dist) - 1.0)
+                    dist_cost += terminal_cost
                 
                 costs[k] += (
                     dist_cost
@@ -159,6 +179,7 @@ class MppiArmController:
             self.U[t] += np.sum(weights[:, None] * noise[:, t, :], axis=0)
 
         action = self.U[0].copy()
+        action = np.clip(action, -2.0, 2.0)
         self.U[:-1] = self.U[1:]
         self.U[-1] = 0.0
 

@@ -18,7 +18,7 @@ class PandaConfig:
     
     # Link indices
     BASE_LINK_INDEX = -1
-    EE_LINK_INDEX = 11
+    EE_LINK_INDEX = 14
     
     # Degrees of freedom
     BASE_DOF = 3
@@ -43,5 +43,5 @@ class PandaConfig:
     CANDLE_CONFIGURATION = np.zeros(7)
     
     # Physical dimensions
-    BASE_RADIUS = 0.051  # meters (measured from URDF)
+    BASE_RADIUS = 0.051
 

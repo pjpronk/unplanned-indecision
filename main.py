@@ -9,6 +9,7 @@ from classes import (RRTPlanner, PathFollower, PathVisualizer,
                      PlaygroundEnv, ArmController, MppiArmController, PandaConfig,
                      MissionStateMachine)
 
+
 @dataclass
 class MissionConfig:
     """Mission parameters for navigation and reaching."""
@@ -26,7 +27,6 @@ class MissionConfig:
             switch_distance=0.3,
             forward_velocity=1.5
         )
-
 
 # --- Helper Functions ---
 def get_arm_joint_states(robot_id: int, robot_config) -> np.ndarray:
@@ -173,7 +173,7 @@ def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig,
         obstacles=obstacles_2d,
         step_size=0.15, 
         max_iterations=2000,
-        bounds=(0.0, 10.0, 0.0, 6.0),
+        bounds=(-10.0, 10.0, -10.0, 10.0),
         robot_radius=0.5,
         goal_sample_rate=0.10
     )
@@ -196,7 +196,7 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     """
     State machine for mobile base navigation + arm reaching with multiple missions.
     
-    States: TUCK -> DRIVE -> SETTLE -> REACH -> (next mission)
+    States: TUCK -> DRIVE -> REACH -> (next mission)
     
     Args:
         n_steps: Maximum number of simulation steps
@@ -209,20 +209,20 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     # Define multiple missions
     missions = [
         MissionConfig(
-            base_goal_2d=np.array([6.0, 3.0]),
-            arm_goal_3d=(6.3, 3.3, 0.8),
+            base_goal_2d=np.array([-2.0, -2.0]),
+            arm_goal_3d=(-2.3, -2.3, 0.8),
             switch_distance=0.3,
             forward_velocity=1.5
         ),
         MissionConfig(
-            base_goal_2d=np.array([3.0, 4.0]),
-            arm_goal_3d=(3.2, 4.5, 0.6),
+            base_goal_2d=np.array([4.0, 4.0]),
+            arm_goal_3d=(4.2, 4.5, 0.6),
             switch_distance=0.3,
             forward_velocity=1.5
         ),
         MissionConfig(
-            base_goal_2d=np.array([7.0, 1.5]),
-            arm_goal_3d=(7.5, 1.8, 0.7),
+            base_goal_2d=np.array([2.0, 2.5]),
+            arm_goal_3d=(2.5, 2.8, 0.7),
             switch_distance=0.3,
             forward_velocity=1.5
         ),

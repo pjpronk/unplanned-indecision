@@ -7,7 +7,6 @@ class State(Enum):
     """State machine states."""
     TUCK = auto()
     DRIVE = auto()
-    SETTLE = auto()
     REACH = auto()
 
 
@@ -30,8 +29,8 @@ class MissionStateMachine:
         # State machine variables
         self.current_mission_idx = 0
         self.state = State.TUCK
-        self.settling_steps = 0
-        self.settling_duration = 50
+        self.tuck_steps = 0
+        self.tuck_warmup_steps = 20  # Steps to wait before checking if arm is tucked
         self.reach_steps = 0
         self.reach_duration = 200  # Steps to spend reaching before next mission
         
@@ -76,7 +75,7 @@ class MissionStateMachine:
         
         # Transition to TUCK state for new mission
         self.state = State.TUCK
-        self.settling_steps = 0
+        self.tuck_steps = 0
         self.reach_steps = 0
         
         return True
@@ -89,16 +88,19 @@ class MissionStateMachine:
         
         if self.state == State.TUCK:
             # Tuck arm to safe position
-            if step == 0 or self.current_mission_idx > 0:
+            if self.tuck_steps == 0:
                 print(f"[TUCK] Tucking arm to safe candle position...")
             
             arm_vels = self.safe_ctrl.get_target_velocities(arm_q, target_pos_3d=None)
             action[self.robot_config.ARM_SLICE] = arm_vels
+            self.tuck_steps += 1
             
-            # Check if arm is tucked
-            if self.safe_ctrl.has_arrived(arm_q, threshold=0.1):
-                print(f"[TUCK] Arm tucked successfully\n")
-                self.state = State.DRIVE
+            # Only check if arm is tucked after warm-up period
+            if self.tuck_steps >= self.tuck_warmup_steps:
+                if self.safe_ctrl.has_arrived(arm_q, threshold=0.1):
+                    print(f"[TUCK] Arm tucked successfully\n")
+                    self.state = State.DRIVE
+                    self.tuck_steps = 0
         
         elif self.state == State.DRIVE:
             # Navigate to base goal
@@ -109,19 +111,6 @@ class MissionStateMachine:
                 action[self.robot_config.BASE_SLICE] = base_vel[self.robot_config.BASE_SLICE]
             else:
                 print(f"[DRIVE] Reached destination at step {step}\n")
-                self.state = State.SETTLE
-                self.settling_steps = 0
-        
-        elif self.state == State.SETTLE:
-            # Brake the base before reaching
-            if self.settling_steps == 0:
-                print(f"[SETTLE] Braking base for {self.settling_duration} steps...")
-            
-            action[self.robot_config.BASE_SLICE] = 0.0
-            self.settling_steps += 1
-            
-            if self.settling_steps >= self.settling_duration:
-                print(f"[SETTLE] Base settled\n")
                 self.state = State.REACH
                 self.reach_steps = 0
         

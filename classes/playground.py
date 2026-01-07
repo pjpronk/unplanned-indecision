@@ -31,6 +31,8 @@ class PlaygroundEnv:
         self.obstacles_3d = []
         self.end_pos = end_pos
         self.r_robot = robot_radius
+        self.chair_marker = []
+        self.closet_marker = []
         
         self.setup_obstacles()
 
@@ -151,31 +153,77 @@ class PlaygroundEnv:
             self._create_lego_pile()
             
             # Duplo wall (pyramid structure)
-            self._create_duplo_wall()
+            self._create_duplo_wall([1.5,0.5,0])
 
             # Chair obstacle
-            self._create_chair_obstacle()
-
+            pos_chair = [2,4]
+            self._create_chair_obstacle(pos_chair, name_prefix="chair1")
+            self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
             # Closet obstacle
-            self._create_closet_obstacle([7.5,1,0.05])
+            pos_closet = [4,0,0.05]
+            self._create_closet_obstacle(pos_closet)
+            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+
+            # Walls
+            self._create_walls()
+
+            # Football obstacle
+            self._create_football_obstacle([3.0, 3.0, 0.11])
+
+            # toycar obstacle
+            self._create_toycar_obstacle([4.0, 3.5 , 0.05])
+
+
+
 
        #if type=="sandbox":
 
 
+
+    # def _create_lego_pile(self):
+    #     """Create scattered lego pieces near target area."""
+    #     random_offsets = np.random.uniform(-0.5, 0.5, 100)
+        
+    #     for i in range(7):
+    #         # Try up to 50 times to place each lego without collision
+    #         for attempt in range(50):
+    #             lego = {
+    #                 "type": "box",
+    #                 "movable": True,
+    #                 "geometry": {
+    #                     "position": [
+    #                         float(3 + np.random.choice(random_offsets)),
+    #                         float(1.5 + np.random.choice(random_offsets)),
+    #                         0.05 + i * 0.2
+    #                     ],
+    #                     "orientation": [float(np.random.choice(random_offsets) * 2), 0, 0, 0.707],
+    #                     "width": 0.1,
+    #                     "height": 0.05,
+    #                     "length": 0.04,
+    #                 },
+    #                 "rgba": [0.4, 0.2, 0.2, 1.0]
+    #             }
+                
+    #             box_obst = BoxObstacle(name=f"lego_{i}", content_dict=lego)
+                
+    #             if not self._has_collision_with_existing(box_obst):
+    #                 self.obstacles_3d.append(box_obst)
+    #                 self.env.add_obstacle(box_obst)
+    #                 break
+    
     def _create_lego_pile(self):
         """Create scattered lego pieces near target area."""
         random_offsets = np.random.uniform(-0.5, 0.5, 100)
         
         for i in range(7):
             # Try up to 50 times to place each lego without collision
-            for attempt in range(50):
-                lego = {
+            lego = {
                     "type": "box",
                     "movable": True,
                     "geometry": {
                         "position": [
-                            float(4 + np.random.choice(random_offsets)),
-                            float(1 + np.random.choice(random_offsets)),
+                            float(3 + np.random.choice(random_offsets)),
+                            float(1.5 + np.random.choice(random_offsets)),
                             0.05 + i * 0.2
                         ],
                         "orientation": [float(np.random.choice(random_offsets) * 2), 0, 0, 0.707],
@@ -186,12 +234,10 @@ class PlaygroundEnv:
                     "rgba": [0.4, 0.2, 0.2, 1.0]
                 }
                 
-                box_obst = BoxObstacle(name=f"lego_{i}", content_dict=lego)
-                
-                if not self._has_collision_with_existing(box_obst):
-                    self.obstacles_3d.append(box_obst)
-                    self.env.add_obstacle(box_obst)
-                    break
+            box_obst = BoxObstacle(name=f"lego_{i}", content_dict=lego)
+            self.obstacles_3d.append(box_obst)
+            self.env.add_obstacle(box_obst)
+    
 
     def _create_duplo_wall(self, base_pos=(6.0, 1.0, 0.0)):
         """Create pyramid-shaped duplo wall structure."""
@@ -358,6 +404,151 @@ class PlaygroundEnv:
             shelf_obs = BoxObstacle(name=f"closet_shelf_{i}", content_dict=shelf)
             self.obstacles_3d.append(shelf_obs)
             self.env.add_obstacle(shelf_obs)
+        
+    def _create_walls(self):
+        """Create room walls as box obstacles."""
+        wall_thickness = 0.05
+        wall_height = 0.5
+        room_bounds = {
+            "x_min": -0.5,
+            "x_max": 5.0,
+            "y_min": -0.5,
+            "y_max": 6.0
+            }
+        
+        # Left wall
+        left_wall = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": [
+                    (room_bounds["y_min"] + room_bounds["y_max"]) / 2,
+                    room_bounds["x_min"],
+                    wall_height / 2
+                ],
+                "width": wall_thickness,
+                "height": wall_height,
+                "length": room_bounds["y_max"] - room_bounds["y_min"],
+            },
+            "rgba": [0.7, 0.7, 0.7, 1.0],
+        }
+        left_wall_obs = BoxObstacle(name="left_wall", content_dict=left_wall)
+        self.obstacles_3d.append(left_wall_obs)
+        self.env.add_obstacle(left_wall_obs)
+
+        #right wall
+        right_wall = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": [
+                    (room_bounds["y_min"] + room_bounds["y_max"]) / 2,
+                    room_bounds["x_max"],
+                    
+                    wall_height / 2
+                ],
+                "width": wall_thickness,
+                "height": wall_height,
+                "length": room_bounds["y_max"] - room_bounds["y_min"],
+            },
+            "rgba": [0.7, 0.7, 0.7, 1.0],
+        }
+        right_wall_obs = BoxObstacle(name="right_wall", content_dict=right_wall)
+        self.obstacles_3d.append(right_wall_obs)
+        self.env.add_obstacle(right_wall_obs)
+
+        #front wall
+        front_wall = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": [
+                    
+                    room_bounds["y_min"],
+                    (room_bounds["x_min"] + room_bounds["x_max"]) / 2,
+                    wall_height / 2
+                ],
+                "width": room_bounds["x_max"] - room_bounds["x_min"],
+                "height": wall_height,
+                "length": wall_thickness,
+            },
+            "rgba": [0.7, 0.7, 0.7, 1.0],
+        }
+        front_wall_obs = BoxObstacle(name="front_wall", content_dict=front_wall)
+        self.obstacles_3d.append(front_wall_obs)
+        self.env.add_obstacle(front_wall_obs)
+
+        #back wall
+        back_wall = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": [
+                    room_bounds["y_max"],
+                    (room_bounds["x_min"] + room_bounds["x_max"]) / 2,
+                    wall_height / 2
+                ],
+                "width": room_bounds["x_max"] - room_bounds["x_min"],
+                "height": wall_height,
+                "length": wall_thickness,
+            },
+            "rgba": [0.7, 0.7, 0.7, 1.0],
+        }
+        back_wall_obs = BoxObstacle(name="back_wall", content_dict=back_wall)
+        self.obstacles_3d.append(back_wall_obs)
+        self.env.add_obstacle(back_wall_obs)
+
+    def _create_football_obstacle(self, position):
+        
+        football = {
+            "type": "sphere",
+            "movable": True,
+            "geometry": {
+                "position": position,
+                "radius": 0.11,
+            },
+            "rgba": [1.0, 1.0, 1.0, 1.0],
+        }
+        football_obs = SphereObstacle(name="football", content_dict=football)
+        self.obstacles_3d.append(football_obs)
+        self.env.add_obstacle(football_obs)
+
+    def _create_toycar_obstacle(self, position):
+        """simple box + cylinders"""
+        #car body
+        car_body = {
+            "type": "box",
+            "movable": False,
+            "geometry": {
+                "position": position,
+                "width": 0.2,
+                "height": 0.1,
+                "length": 0.4
+            },
+            "rgba": [1.0, 0.0, 0.0, 1.0]
+        }
+        car_body_obs = BoxObstacle(name="toycar_body", content_dict=car_body)
+        self.obstacles_3d.append(car_body_obs)
+        self.env.add_obstacle(car_body_obs)
+
+        #wheels
+        wheel_offsets = [(-0.1, -0.15), (0.1, -0.15), (-0.1, 0.15), (0.1, 0.15)]
+        for i, (dx, dy) in enumerate(wheel_offsets):
+            wheel = {
+                "type": "cylinder",
+                "movable": False,
+                "geometry": {
+                    "position": [position[0] + dx, position[1] + dy, position[2] + 0.05],
+                    "radius": 0.05,
+                    "height": 0.1,
+                    "orientation": [0, 0, float(np.sin((0.5 * np.pi) / 2)), float(np.cos((0.5 * np.pi) / 2))]
+                },
+                "rgba": [0.0, 0.0, 0.0, 1.0],
+            }
+            wheel_obs = CylinderObstacle(name=f"toycar_wheel_{i}", content_dict=wheel)
+            self.obstacles_3d.append(wheel_obs)
+            self.env.add_obstacle(wheel_obs)
+
 
 
 

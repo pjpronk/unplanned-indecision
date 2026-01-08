@@ -31,8 +31,6 @@ class MissionStateMachine:
         self.state = State.TUCK
         self.tuck_steps = 0
         self.tuck_warmup_steps = 20  # Steps to wait before checking if arm is tucked
-        self.reach_steps = 0
-        self.reach_duration = 200  # Steps to spend reaching before next mission
         
         # Current mission data
         self.path = None
@@ -65,6 +63,7 @@ class MissionStateMachine:
         
         # Plan path to new destination
         base_xy, _ = self._get_state_from_observation(ob)
+        print(f"Path is: {base_xy}, to {mission.base_goal_2d} waypoints\n")
         self.path = self.planner.plan_path(base_xy, mission.base_goal_2d)
         print(f"Path planned: {len(self.path)} waypoints\n")
         
@@ -126,13 +125,6 @@ class MissionStateMachine:
                 target_body_id=self.target_marker_id
             )
             action[self.robot_config.ARM_SLICE] = arm_vels
-            self.reach_steps += 1
-            
-            # Spend some time reaching, then move to next mission
-            if self.reach_steps >= self.reach_duration:
-                print(f"[REACH] Completed reaching phase after {self.reach_steps} steps\n")
-                return None  # Signal to advance to next mission
-        
         # Always keep gripper still
         action[self.robot_config.GRIPPER_SLICE] = 0.0
         return action
@@ -159,15 +151,9 @@ class MissionStateMachine:
             rgbaColor=color
         )
         
-        collision_shape_id = p.createCollisionShape(
-            shapeType=p.GEOM_BOX,
-            halfExtents=[half_size, half_size, half_size]
-        )
-        
         return p.createMultiBody(
             baseMass=0.0,
             baseVisualShapeIndex=visual_shape_id,
-            baseCollisionShapeIndex=collision_shape_id,
             basePosition=position,
             baseOrientation=[0, 0, 0, 1]
         )

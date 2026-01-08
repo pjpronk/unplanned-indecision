@@ -43,5 +43,5 @@ class PandaConfig:
     CANDLE_CONFIGURATION = np.zeros(7)
     
     # Physical dimensions
-    BASE_RADIUS = 0.051
+    BASE_RADIUS = 0.001
 

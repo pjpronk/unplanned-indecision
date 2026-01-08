@@ -165,7 +165,7 @@ class PlaygroundEnv:
             self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
 
             # Walls
-            self._create_walls()
+            # self._create_walls()
 
             # Football obstacle
             self._create_football_obstacle([3.0, 3.0, 0.11])
@@ -348,9 +348,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0]+0.6,postion[1], postion[2]+0.55],
-                "width": 0.6,
+                "width": 0.1,
                 "height": 1.2,
-                "length": 0.1,
+                "length": 1.2,
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -363,9 +363,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0]-0.6,postion[1], postion[2]+0.55],
-                "width": 0.6,
+                "width": 0.1,
                 "height": 1.2,
-                "length": 0.1,
+                "length": 1.2,
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -378,9 +378,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0], postion[1], postion[2]+1.1],
-                "width": 0.6,
+                "width": 1.2,
                 "height": 0.1,
-                "length": 1.2
+                "length": 0.6
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -551,6 +551,39 @@ class PlaygroundEnv:
 
 
 
+
+    def get_graspable_goals(self):
+        """
+        Get list of graspable object goals from the environment.
+        
+        Returns:
+            List of dicts with:
+                - name: object identifier
+                - position: 3D numpy array [x, y, z]
+                - object_type: type of object (for planning params)
+                - radius: object approximate radius for safety
+        """
+        goals = []
+        
+        # Chair
+        if self.chair_marker:
+            goals.append({
+                'name': 'chair',
+                'position': np.array(self.chair_marker),
+                'object_type': 'furniture',
+                'radius': 0.5  # Approximate object size
+            })
+        
+        # Closet
+        if self.closet_marker:
+            goals.append({
+                'name': 'closet',
+                'position': np.array(self.closet_marker),
+                'object_type': 'furniture',
+                'radius': 0.6
+            })
+        
+        return goals
 
     def get_2d_obstacles(self):
         """

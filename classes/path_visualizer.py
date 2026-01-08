@@ -40,6 +40,46 @@ class PathVisualizer:
         
         plt.show()
     
+    def show_obstacles_only(self, goals=None, current_pos=None, title="Environment Obstacles"):
+        """
+        Display only the obstacles without any path.
+        
+        Args:
+            goals: Optional list of goal positions to show (list of [x, y] arrays or single [x, y])
+            current_pos: Current 2D position [x, y] (optional)
+            title: Plot title
+        """
+        self.fig, self.ax = plt.subplots(figsize=(7, 7))
+        
+        self._draw_obstacles()
+        
+        # Draw current position if provided
+        if current_pos is not None:
+            self.ax.plot(current_pos[0], current_pos[1], 'go', 
+                   markersize=10, label='Start', zorder=7)
+        
+        # Draw goal(s) if provided
+        if goals is not None:
+            # Handle single goal or list of goals
+            if isinstance(goals, (list, tuple)) and len(goals) > 0:
+                # Check if it's a list of goals or a single goal
+                if isinstance(goals[0], (list, tuple, np.ndarray)):
+                    # Multiple goals
+                    for i, goal in enumerate(goals):
+                        self.ax.plot(goal[0], goal[1], 'ro', 
+                               markersize=10, label=f'Goal {i+1}' if i == 0 else '', zorder=7)
+                else:
+                    # Single goal [x, y]
+                    self.ax.plot(goals[0], goals[1], 'ro', 
+                           markersize=10, label='Goal', zorder=7)
+            elif isinstance(goals, np.ndarray):
+                # Single goal as numpy array
+                self.ax.plot(goals[0], goals[1], 'ro', 
+                       markersize=10, label='Goal', zorder=7)
+        
+        self._setup_plot(title)
+        plt.show()
+    
     def save(self, path, filename, current_pos=None, title="Path Planning Visualization"):
         """
         Save a 2D visualization to a file.

@@ -1,32 +1,13 @@
 import numpy as np
 import pybullet as p
-from dataclasses import dataclass
 
 from urdfenvs.robots.generic_urdf import GenericUrdfReacher
 from urdfenvs.urdf_common.urdf_env import UrdfEnv
 
 from classes import (RRTPlanner, PathFollower, PathVisualizer, 
                      PlaygroundEnv, ArmController, MppiArmController, PandaConfig,
-                     MissionStateMachine)
+                     MissionStateMachine, MissionPlanner, MissionConfig)
 
-
-@dataclass
-class MissionConfig:
-    """Mission parameters for navigation and reaching."""
-    base_goal_2d: np.ndarray
-    arm_goal_3d: tuple
-    switch_distance: float = 0.15
-    forward_velocity: float = 1.5
-    
-    @classmethod
-    def lego_pile_mission(cls):
-        """Predefined mission to lego pile area."""
-        return cls(
-            base_goal_2d=np.array([6.0, 3.0]),
-            arm_goal_3d=(6.3, 3.3, 0.8),
-            switch_distance=0.3,
-            forward_velocity=1.5
-        )
 
 # --- Helper Functions ---
 def get_arm_joint_states(robot_id: int, robot_config) -> np.ndarray:
@@ -151,13 +132,16 @@ def setup_environment(render: bool = False, random_obstacles: bool = False):
     playground = PlaygroundEnv(
         env=env,
         end_pos=(9.0, 4.5, 0.0),
-        robot_radius=0.3,
+        robot_radius=PandaConfig.BASE_RADIUS,
         random=random_obstacles,
         obstacle_count=2
     )
+    
+    # Store playground reference in env for later access
+    env._playground = playground
+    
     chair_marker = playground.chair_marker
     closet_marker = playground.closet_marker
-
 
     obstacles_2d = playground.get_2d_obstacles()
     ob = env.reset()
@@ -165,9 +149,13 @@ def setup_environment(render: bool = False, random_obstacles: bool = False):
     # NOTE: Accessing private attributes as urdfenvs doesn't provide public API
     # for robot ID retrieval. This is a library limitation.
     robot_id = env._robots[0]._robot
-    
-    return env, obstacles_2d, ob, robot_id, chair_marker, closet_marker
 
+    goals = playground.get_graspable_goals()
+    print(f"\nFound {len(goals)} graspable objects:")
+    for goal in goals:
+        print(f"  - {goal['name']} at {goal['position']}")
+    
+    return env, obstacles_2d, ob, robot_id, goals
 
 def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig, robot_config):
     """Initialize path planner, follower, and arm controllers."""
@@ -177,7 +165,7 @@ def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig,
         step_size=0.15, 
         max_iterations=2000,
         bounds=(-10.0, 10.0, -10.0, 10.0),
-        robot_radius=0.5,
+        robot_radius=PandaConfig.BASE_RADIUS,
         goal_sample_rate=0.10
     )
     
@@ -209,33 +197,25 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     # Configuration
     robot_config = PandaConfig()
     
-    
     # Setup environment
-    env, obstacles_2d, ob, robot_id, chair_marker, closet_marker = setup_environment(render, random_obstacles)
+    env, obstacles_2d, ob, robot_id, goals = setup_environment(render, random_obstacles)
+    
+    start_pos, _ = get_state_from_observation(ob, robot_config)
+    mission_planner = MissionPlanner(robot_radius=PandaConfig.BASE_RADIUS, obstacles_2d=obstacles_2d)
+    missions = mission_planner.plan_missions(goals, robot_start_pos=start_pos)
+    
+    print(f"\nGenerated {len(missions)} missions:")
+    for i, mission in enumerate(missions):
+        print(f"  Mission {i+1}: Base goal {mission.base_goal_2d}, Arm goal {mission.arm_goal_3d}")
+    
+    # Optional: Visualize obstacles and goals before planning
+    if render:
+        visualizer = PathVisualizer(obstacles_2d, missions[0].base_goal_2d)
+        goal_positions = [m.base_goal_2d for m in missions]
+        visualizer.show_obstacles_only(goals=goal_positions, current_pos=start_pos, 
+                                       title="Environment with Goals")
 
-    # Define multiple missions
-    missions = [
-        # MissionConfig(
-        #     base_goal_2d=np.array(chair_marker[:2]),
-        #     arm_goal_3d=tuple(chair_marker),
-        #     switch_distance=0.3,
-        #     forward_velocity=1.5
-        # ),
-        # MissionConfig(
-        #     base_goal_2d=np.array(closet_marker[:2]),
-        #     arm_goal_3d=tuple(closet_marker),
-        #     switch_distance=0.3,
-        #     forward_velocity=1.5
-        # ),
-        MissionConfig(
-            base_goal_2d=np.array([2.0, 2.5]),
-            arm_goal_3d=(2.5, 2.8, 0.7),
-            switch_distance=0.3,
-            forward_velocity=1.5
-        ),
-    ]
-
-    #Setup controllers
+    # Setup controllers
     planner, follower, mppi_ctrl, safe_ctrl = setup_controllers(
         robot_id, obstacles_2d, missions[0], robot_config
     )
@@ -255,14 +235,15 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     )
     
     # Setup first mission
-    print(f"Starting mission 1/{len(missions)}")
+    print(f"\nStarting mission 1/{len(missions)}")
     print(f"{'='*60}\n")
     mission = missions[0]
     state_machine.target_marker_id = create_target_marker(mission.arm_goal_3d)
     
     # Plan initial path
-    start_pos, _ = get_state_from_observation(ob, robot_config)
     state_machine.path = planner.plan_path(start_pos, mission.base_goal_2d)
+    print(f"Path is: {start_pos}, to {mission.base_goal_2d} waypoints\n")
+
     print(f"Path planned: {len(state_machine.path)} waypoints\n")
     
     if render:

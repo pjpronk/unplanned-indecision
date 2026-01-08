@@ -155,7 +155,10 @@ def setup_environment(render: bool = False, random_obstacles: bool = False):
         random=random_obstacles,
         obstacle_count=2
     )
-    
+    chair_marker = playground.chair_marker
+    closet_marker = playground.closet_marker
+
+
     obstacles_2d = playground.get_2d_obstacles()
     ob = env.reset()
     
@@ -163,7 +166,7 @@ def setup_environment(render: bool = False, random_obstacles: bool = False):
     # for robot ID retrieval. This is a library limitation.
     robot_id = env._robots[0]._robot
     
-    return env, obstacles_2d, ob, robot_id
+    return env, obstacles_2d, ob, robot_id, chair_marker, closet_marker
 
 
 def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig, robot_config):
@@ -206,20 +209,24 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     # Configuration
     robot_config = PandaConfig()
     
+    
+    # Setup environment
+    env, obstacles_2d, ob, robot_id, chair_marker, closet_marker = setup_environment(render, random_obstacles)
+
     # Define multiple missions
     missions = [
-        MissionConfig(
-            base_goal_2d=np.array([-2.0, -2.0]),
-            arm_goal_3d=(-2.3, -2.3, 0.8),
-            switch_distance=0.3,
-            forward_velocity=1.5
-        ),
-        MissionConfig(
-            base_goal_2d=np.array([4.0, 4.0]),
-            arm_goal_3d=(4.2, 4.5, 0.6),
-            switch_distance=0.3,
-            forward_velocity=1.5
-        ),
+        # MissionConfig(
+        #     base_goal_2d=np.array(chair_marker[:2]),
+        #     arm_goal_3d=tuple(chair_marker),
+        #     switch_distance=0.3,
+        #     forward_velocity=1.5
+        # ),
+        # MissionConfig(
+        #     base_goal_2d=np.array(closet_marker[:2]),
+        #     arm_goal_3d=tuple(closet_marker),
+        #     switch_distance=0.3,
+        #     forward_velocity=1.5
+        # ),
         MissionConfig(
             base_goal_2d=np.array([2.0, 2.5]),
             arm_goal_3d=(2.5, 2.8, 0.7),
@@ -227,9 +234,8 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
             forward_velocity=1.5
         ),
     ]
-    
-    # Setup environment
-    env, obstacles_2d, ob, robot_id = setup_environment(render, random_obstacles)
+
+    #Setup controllers
     planner, follower, mppi_ctrl, safe_ctrl = setup_controllers(
         robot_id, obstacles_2d, missions[0], robot_config
     )

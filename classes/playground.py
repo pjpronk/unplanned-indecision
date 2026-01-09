@@ -47,7 +47,7 @@ class PlaygroundEnv:
             self._setup_random_obstacles()
                 
         else:
-            self._setup_predefined_obstacles(type="room")
+            self._setup_predefined_obstacles(type="hard")
 
     def _setup_random_obstacles(self):
         """Generate random boxes and cylinders with collision avoidance."""
@@ -145,7 +145,7 @@ class PlaygroundEnv:
 #Pre defined enviroment, random= False:
 
 
-    def _setup_predefined_obstacles(self, type="room"):
+    def _setup_predefined_obstacles(self, type="medium"):
         """Create predefined obstacle scenario with box, lego pile, and duplo wall."""
         
         if type=="room":
@@ -155,10 +155,10 @@ class PlaygroundEnv:
             # Duplo wall (pyramid structure)
             self._create_duplo_wall([1.5,0.5,0])
 
-            # Chair obstacle
-            pos_chair = [2,4]
-            self._create_chair_obstacle(pos_chair, name_prefix="chair1")
-            self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            # # Chair obstacle
+            # pos_chair = [2,4]
+            # self._create_chair_obstacle(pos_chair, name_prefix="chair1")
+            # self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
             # Closet obstacle
             pos_closet = [4,0,0.05]
             self._create_closet_obstacle(pos_closet)
@@ -175,8 +175,40 @@ class PlaygroundEnv:
 
 
 
+        if type=="hard":
+            # Lego pile (7 small movable boxes)
+            self._create_lego_pile()
+            
+            # Duplo wall (pyramid structure)
+            self._create_duplo_wall([1.5,0.5,0])
+            self._create_duplo_wall([1,3,0])
 
-        if type=="RTT":
+            # Chair obstacle
+            pos_chair = [2,4]
+            self._create_chair_obstacle(pos_chair, name_prefix="chair1")
+            self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            
+            # Closet obstacle
+            pos_closet = [4,0,0.05]
+            self._create_closet_obstacle(pos_closet)
+            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+
+            # Walls
+            self._create_walls()
+
+            # Football obstacle
+            self._create_football_obstacle([3.0, 3.0, 0.11])
+            self._create_football_obstacle([0, 1.5, 0.11])
+
+            # toycar obstacle
+            self._create_toycar_obstacle([4.0, 3.5 , 0.05])
+            self._create_toycar_obstacle([5.0, 1 , 0.05])
+
+
+
+
+
+        if type=="easy":
             # Lego pile (7 small movable boxes)
             self._create_lego_pile()
             
@@ -189,6 +221,11 @@ class PlaygroundEnv:
             #toycar obstacle
             self._create_toycar_obstacle([4.0, 3.5 , 0.05])
             self._create_toycar_obstacle([5.0, 2 , 0.05])
+            self._create_toycar_obstacle([2.0, 4 , 0.05])
+
+            #wall
+            self._create_walls()
+
 
             #targets 
             target_1 = [2, 1, 0.0]
@@ -197,6 +234,28 @@ class PlaygroundEnv:
             self.chair_marker = target_1
             self.closet_marker = target_2
 
+        if type=="test":
+
+            target_1 = [1, 1, 0.5]
+            self.chair_marker = target_1
+
+            self._create_football_obstacle([1.5, 1.5, 0.11])
+
+            target_2 = [2, 2, 0.0]
+            self.closet_marker = target_2
+
+        if type=="quantum_RRT":
+            self._create_duplo_wall([1.5,-0.7,0])
+            self._create_duplo_wall([1.5,0.5,0])
+            self._create_duplo_wall([1.5,2,0])
+            self._create_duplo_wall([1.5,3.8,0])
+            self._create_duplo_wall([1.5,5,0])
+            self._create_walls()
+
+            target_1 = [4, 1, 0.0]
+            self.chair_marker = target_1
+            target_2 = [4, 4, 0.0]
+            self.closet_marker = target_2
             
 
 
@@ -274,10 +333,10 @@ class PlaygroundEnv:
                     "geometry": {
                         "position": [
                             float(x0),
-                            float(y0 + i * 0.2 + j * 0.1),
+                            float(y0 -0.4 + i * 0.4 + j * 0.2),
                             float(z0 + 0.1 + j * 0.2),
                         ],
-                        "orientation": [0, 0, 0, 1],
+                        # "orientation": [0, 0, 0, 1],
                         "width": 0.4,
                         "height": 0.2,
                         "length": 0.2,
@@ -301,9 +360,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [x0, y0, 0.45 + h],
-                "width": 0.5,
+                "width": 0.7,
                 "height": 0.1,
-                "length": 0.5,
+                "length": 0.7,
             },
             "rgba": [0.6, 0.4, 0.2, 1.0],
         }
@@ -312,14 +371,14 @@ class PlaygroundEnv:
         self.env.add_obstacle(seat_obs)
 
         # Legs
-        leg_offsets = [(-0.2, -0.2), (-0.2, 0.2), (0.2, -0.2), (0.2, 0.2)]
+        leg_offsets = [(-0.3, -0.3), (-0.3, 0.3), (0.3, -0.3), (0.3, 0.3)]
         for i, (dx, dy) in enumerate(leg_offsets):
             leg = {
                 "type": "cylinder",
                 "movable": False,
                 "geometry": {
                     "position": [x0 + dx, y0 + dy, 0.225 + h/2],
-                    "radius": 0.05,
+                    "radius": 0.03,
                     "height": 0.45 + h,
                 },
                 "rgba": [0.6, 0.4, 0.2, 1.0],
@@ -334,7 +393,7 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [x0 - 0.25, y0, 0.75 + h],
-                "width": 0.5, 
+                "width": 0.7, 
                 "height": 0.6,
                 "length": 0.1,
                 

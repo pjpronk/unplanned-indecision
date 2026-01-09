@@ -39,7 +39,8 @@ class MppiArmController:
         # Cost weights
         self.dist_weight = 100.0
         self.terminal_dist_weight = 500.0  # Heavier weight for final state
-        self.collision_cost = 10_000.0
+        # self.collision_cost = 10_000.0
+        self.collision_cost = 500.0
         self.jerk_weight = 0.5
         self.exp_decay_rate = 5.0  # Exponential decay rate for distance cost
 

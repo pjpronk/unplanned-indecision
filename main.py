@@ -174,7 +174,7 @@ def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig,
         step_size=0.15, 
         max_iterations=2000,
         bounds=(-10.0, 10.0, -10.0, 10.0),
-        robot_radius=PandaConfig.BASE_RADIUS,
+        robot_radius=0.25,
         goal_sample_rate=0.10
     )
     

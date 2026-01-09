@@ -47,7 +47,7 @@ class PlaygroundEnv:
             self._setup_random_obstacles()
                 
         else:
-            self._setup_predefined_obstacles()
+            self._setup_predefined_obstacles(type="room")
 
     def _setup_random_obstacles(self):
         """Generate random boxes and cylinders with collision avoidance."""
@@ -165,7 +165,7 @@ class PlaygroundEnv:
             self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
 
             # Walls
-            # self._create_walls()
+            self._create_walls()
 
             # Football obstacle
             self._create_football_obstacle([3.0, 3.0, 0.11])
@@ -176,7 +176,29 @@ class PlaygroundEnv:
 
 
 
-       #if type=="sandbox":
+        if type=="RTT":
+            # Lego pile (7 small movable boxes)
+            self._create_lego_pile()
+            
+            # Duplo wall (pyramid structure)
+            self._create_duplo_wall([1.5,0.5,0])
+
+            # Football obstacle
+            self._create_football_obstacle([3.0, 3.0, 0.11])
+
+            #toycar obstacle
+            self._create_toycar_obstacle([4.0, 3.5 , 0.05])
+            self._create_toycar_obstacle([5.0, 2 , 0.05])
+
+            #targets 
+            target_1 = [2, 1, 0.0]
+
+            target_2 = [4, 2, 0.0]
+            self.chair_marker = target_1
+            self.closet_marker = target_2
+
+            
+
 
 
 
@@ -272,13 +294,13 @@ class PlaygroundEnv:
         "god help me , this is gonna give me a headache"
    
         x0, y0 = float(base_xy[0]), float(base_xy[1])
-
+        h = 0.2
         # Seat
         seat = {
             "type": "box",
             "movable": False,
             "geometry": {
-                "position": [x0, y0, 0.45],
+                "position": [x0, y0, 0.45 + h],
                 "width": 0.5,
                 "height": 0.1,
                 "length": 0.5,
@@ -296,9 +318,9 @@ class PlaygroundEnv:
                 "type": "cylinder",
                 "movable": False,
                 "geometry": {
-                    "position": [x0 + dx, y0 + dy, 0.225],
+                    "position": [x0 + dx, y0 + dy, 0.225 + h/2],
                     "radius": 0.05,
-                    "height": 0.45,
+                    "height": 0.45 + h,
                 },
                 "rgba": [0.6, 0.4, 0.2, 1.0],
             }
@@ -311,11 +333,11 @@ class PlaygroundEnv:
             "type": "box",
             "movable": False,
             "geometry": {
-                "position": [x0 - 0.25, y0, 0.75],
-                "width": 0.1,
+                "position": [x0 - 0.25, y0, 0.75 + h],
+                "width": 0.5, 
                 "height": 0.6,
-                "length": 0.5,
-                "orientation": [float(np.sin((0.5 * np.pi) / 2)), 0, 0, float(np.cos((0.5 * np.pi) / 2))],
+                "length": 0.1,
+                
             },
             "rgba": [0.6, 0.4, 0.2, 1.0],
         }
@@ -333,9 +355,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": postion,
-                "width": 0.6,
-                "height": 0.1,
-                "length": 1.2
+                "width": 0.6,  #y direction
+                "height": 0.1, #z direction
+                "length": 1.2  #x direction
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -348,9 +370,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0]+0.6,postion[1], postion[2]+0.55],
-                "width": 0.1,
+                "width": 0.6,
                 "height": 1.2,
-                "length": 1.2,
+                "length": 0.1,
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -363,9 +385,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0]-0.6,postion[1], postion[2]+0.55],
-                "width": 0.1,
+                "width": 0.6,
                 "height": 1.2,
-                "length": 1.2,
+                "length": 0.1,
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -378,9 +400,9 @@ class PlaygroundEnv:
             "movable": False,
             "geometry": {
                 "position": [postion[0], postion[1], postion[2]+1.1],
-                "width": 1.2,
+                "width": 0.6,
                 "height": 0.1,
-                "length": 0.6
+                "length": 1.2
             },
             "rgba": [0.9, 0.9, 0.9, 1.0]
         }
@@ -612,8 +634,8 @@ class PlaygroundEnv:
                 obs_2d['radius'] = obstacle.radius()
                 
             elif obstacle.type() == 'box':
-                obs_2d['width'] = obstacle.width()
-                obs_2d['length'] = obstacle.length()
+                obs_2d['width'] = obstacle.length()
+                obs_2d['length'] = obstacle.width()
                 obs_2d['bounding_radius'] = self.bounding_circle_radius(obstacle)
                 
             elif obstacle.type() == 'cylinder':

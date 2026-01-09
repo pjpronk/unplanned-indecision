@@ -294,9 +294,10 @@ class RRTPlanner:
 
             else:
                 raise ValueError(f"Unknown obstacle type: {t}")
-
         return False
 
+
+        
 
     def _steer(self, from_p: Point, to_p: Point, step_size: float) -> Point:
         d = RRTPlanner._dist(from_p, to_p)

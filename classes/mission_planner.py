@@ -73,11 +73,12 @@ class MissionPlanner:
         goal_2d = goal['position'][:2]
         
         # Calculate safe base position
-        safe_radius = self._get_safe_radius(goal)
-        approach_direction = self._calculate_approach_direction(goal_2d, robot_pos)
+        # safe_radius = self._get_safe_radius(goal)
+        # approach_direction = self._calculate_approach_direction(goal_2d, robot_pos)
         
         # Base goal is offset from object by safe radius
-        base_goal_2d = goal_2d - approach_direction * safe_radius
+        # base_goal_2d = goal_2d - approach_direction * safe_radius
+        base_goal_2d = self._better_landing_zones(goal)[0]  #For now just first zone, might implement a clearance based selection later.
         
         # Adjust parameters based on object type
         switch_distance, velocity = self._get_mission_params(goal)
@@ -100,8 +101,37 @@ class MissionPlanner:
             Safe radius in meters
         """
         # Object radius + robot radius
-        object_radius = goal.get('radius', 0.3)
-        return object_radius + self.robot_radius
+
+        if goal['position'][2] > 0.5:
+            object_radius = goal.get('radius', 0.3)
+            return object_radius + self.robot_radius
+        
+        #little extra distance for low objects
+        else:
+            object_radius = goal.get('radius', 0.3)
+            return object_radius + self.robot_radius + 0.5  
+        
+    def _better_landing_zones(self, goal: dict) -> list:
+        """
+        Generate multiple base goal positions around the object.
+        Checks for collisions with other objects.
+        picks the top N zones that are collision free.
+        """
+        goal_2d = np.array(goal['position'][:2])
+        safe_radius = self._get_safe_radius(goal)
+        
+        angles = np.linspace(0, 2 * np.pi, num=12, endpoint=False)
+        base_goals = []
+        
+        for angle in angles:
+            direction = np.array([np.cos(angle), np.sin(angle)])
+            base_goal = goal_2d - direction * safe_radius
+            if not self._check_collision(base_goal):
+                if base_goal[0] > -0.5 and base_goal[0] < 5 and base_goal[1] > -0.5 and base_goal[1] < 6:
+                    base_goals.append(base_goal)    
+        
+        return base_goals
+        
     
     def _calculate_approach_direction(self, goal_2d: np.ndarray, 
                                      robot_pos: np.ndarray = None) -> np.ndarray:
@@ -150,4 +180,36 @@ class MissionPlanner:
         }
         
         return params.get(object_type, params['default'])
+    
+    def _check_collision(self, base_goal: np.ndarray) -> bool:
+        """
+        checks for collision of the robot at the given base goal position.
+        """
+        x = float(base_goal[0])
+        y = float(base_goal[1])
+        r_robot = float(self.robot_radius)
+
+        for obs in self.obstacles_2d:
+
+            pos = obs["position"]
+            obst_x = float(pos[0])
+            obst_y = float(pos[1])
+
+            # Round objects 
+            if obs.get("type") in ["sphere", "cylinder", "circle"]:
+                r_obst = float(obs["radius"])
+                r_total = r_obst + r_robot
+
+                if (x - obst_x) ** 2 + (y - obst_y) ** 2 <= r_total ** 2:
+                    return True
+
+            # boxes
+            elif obs.get("type") == "box":
+                half_w = 0.5 * float(obs["width"]) + r_robot    # x half-size
+                half_l = 0.5 * float(obs["length"]) + r_robot   # y half-size
+
+                if abs(x - obst_x) <= half_w and abs(y - obst_y) <= half_l:
+                    return True
+
+        return False
 

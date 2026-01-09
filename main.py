@@ -3,6 +3,15 @@ import pybullet as p
 
 from urdfenvs.robots.generic_urdf import GenericUrdfReacher
 from urdfenvs.urdf_common.urdf_env import UrdfEnv
+import os
+
+import matplotlib
+matplotlib.use("TkAgg", force=True)
+print("DISPLAY =", os.environ.get("DISPLAY"))
+print("Matplotlib backend =", matplotlib.get_backend())
+import matplotlib.pyplot as plt
+
+
 
 from classes import (RRTPlanner, PathFollower, PathVisualizer, 
                      PlaygroundEnv, ArmController, MppiArmController, PandaConfig,
@@ -182,7 +191,7 @@ def setup_controllers(robot_id: int, obstacles_2d: list, mission: MissionConfig,
 
 
 # --- Main Execution ---
-def run_mobile_reacher(n_steps: int = 10000, render: bool = False, 
+def run_mobile_reacher(n_steps: int = 10000, render: bool = True, 
                        random_obstacles: bool = False):
     """
     State machine for mobile base navigation + arm reaching with multiple missions.
@@ -200,20 +209,26 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = False,
     # Setup environment
     env, obstacles_2d, ob, robot_id, goals = setup_environment(render, random_obstacles)
     
+
     start_pos, _ = get_state_from_observation(ob, robot_config)
     mission_planner = MissionPlanner(robot_radius=PandaConfig.BASE_RADIUS, obstacles_2d=obstacles_2d)
     missions = mission_planner.plan_missions(goals, robot_start_pos=start_pos)
+
+    visualizer = PathVisualizer(obstacles_2d, missions[0].base_goal_2d)
+    goal_positions = [m.base_goal_2d for m in missions]
+    visualizer.show_obstacles_only(goals=goal_positions, current_pos=start_pos, 
+                                    title="Environment with Goals")
     
     print(f"\nGenerated {len(missions)} missions:")
     for i, mission in enumerate(missions):
         print(f"  Mission {i+1}: Base goal {mission.base_goal_2d}, Arm goal {mission.arm_goal_3d}")
     
     # Optional: Visualize obstacles and goals before planning
-    if render:
-        visualizer = PathVisualizer(obstacles_2d, missions[0].base_goal_2d)
-        goal_positions = [m.base_goal_2d for m in missions]
-        visualizer.show_obstacles_only(goals=goal_positions, current_pos=start_pos, 
-                                       title="Environment with Goals")
+    # if render:
+    # visualizer = PathVisualizer(obstacles_2d, missions[0].base_goal_2d)
+    # goal_positions = [m.base_goal_2d for m in missions]
+    # visualizer.show_obstacles_only(goals=goal_positions, current_pos=start_pos, 
+    #                                 title="Environment with Goals")
 
     # Setup controllers
     planner, follower, mppi_ctrl, safe_ctrl = setup_controllers(

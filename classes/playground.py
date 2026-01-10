@@ -47,7 +47,7 @@ class PlaygroundEnv:
             self._setup_random_obstacles()
                 
         else:
-            self._setup_predefined_obstacles(type="hard")
+            self._setup_predefined_obstacles(type="easy")
 
     def _setup_random_obstacles(self):
         """Generate random boxes and cylinders with collision avoidance."""
@@ -148,7 +148,7 @@ class PlaygroundEnv:
     def _setup_predefined_obstacles(self, type="medium"):
         """Create predefined obstacle scenario with box, lego pile, and duplo wall."""
         
-        if type=="room":
+        if type=="medium":
             # Lego pile (7 small movable boxes)
             self._create_lego_pile()
             
@@ -163,6 +163,9 @@ class PlaygroundEnv:
             pos_closet = [4,0,0.05]
             self._create_closet_obstacle(pos_closet)
             self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+
+            #second goal
+            self.chair_marker = [4,3,0.1]
 
             # Walls
             self._create_walls()

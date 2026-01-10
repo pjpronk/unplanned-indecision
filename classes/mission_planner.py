@@ -109,7 +109,7 @@ class MissionPlanner:
         #little extra distance for low objects
         else:
             object_radius = goal.get('radius', 0.3)
-            return object_radius + self.robot_radius + 0.3  
+            return object_radius + self.robot_radius + 0.4  
         
     def _better_landing_zones(self, goal: dict) -> list:
         """

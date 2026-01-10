@@ -256,9 +256,11 @@ def run_mobile_reacher(n_steps: int = 10000, render: bool = True,
     state_machine.target_marker_id = create_target_marker(mission.arm_goal_3d)
     
     # Plan initial path
+    print("mission_base_goal_2d:", mission.base_goal_2d)
     state_machine.path = planner.plan_path(start_pos, mission.base_goal_2d)
-    print(f"Path is: {start_pos}, to {mission.base_goal_2d} waypoints\n")
 
+    print(f"Path is: {start_pos}, to {mission.base_goal_2d} waypoints\n")
+    print("machine_path", state_machine.path)
     print(f"Path planned: {len(state_machine.path)} waypoints\n")
     
     if render:

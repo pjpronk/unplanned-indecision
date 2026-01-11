@@ -1,6 +1,5 @@
 import numpy as np
 
-from urdfenvs.urdf_common.urdf_env import UrdfEnv
 from mpscenes.obstacles.sphere_obstacle import SphereObstacle
 from mpscenes.obstacles.box_obstacle import BoxObstacle
 from mpscenes.obstacles.cylinder_obstacle import CylinderObstacle
@@ -11,10 +10,10 @@ class PlaygroundEnv:
     Environment that manages obstacles and provides both 3D PyBullet simulation
     and 2D obstacle data for RRT path planning.
 
-    Can generate either predefined or random obstacles with collision avoidance.
+    Creates predefined obstacle scenarios.
     """
 
-    def __init__(self, env, end_pos, robot_radius, random=False, obstacle_count=25):
+    def __init__(self, env, end_pos, robot_radius, type):
         """
         Initialize PlaygroundEnv obstacle manager.
 
@@ -22,126 +21,22 @@ class PlaygroundEnv:
             env: UrdfEnv instance to populate with obstacles
             end_pos: End position as tuple (x, y, z)
             robot_radius: Robot radius for collision checking
-            random: Generate random obstacles if True, predefined otherwise
-            obstacle_count: Number of obstacles to generate (random mode only)
+            type: Predefined scenario type
         """
         self.env = env
-        self.random = random
-        self.obstacle_count = obstacle_count
+        self.type = type
         self.obstacles_3d = []
         self.end_pos = end_pos
         self.r_robot = robot_radius
-        self.chair_marker = []
-        self.closet_marker = []
+        self.goals = []
 
         self.setup_obstacles()
 
     def setup_obstacles(self):
-        """
-        Set up obstacles in the environment.
+        """Set up obstacles in the environment using predefined scenarios."""
+        self._setup_predefined_obstacles(type=self.type)
 
-        If random=True: generates random boxes and cylinders with collision avoidance
-        If random=False: creates predefined scenario with box, lego pile, and duplo wall
-        """
-        if self.random:
-            self._setup_random_obstacles()
-
-        else:
-            self._setup_predefined_obstacles(type="easy")
-
-    def _setup_random_obstacles(self):
-        """Generate random boxes and cylinders with collision avoidance."""
-        obstacles_counter = 0
-
-        # Try to place boxes
-        for i in range(self.obstacle_count):
-            if self._try_place_random_box(f"box_{i}"):
-                obstacles_counter += 1
-
-        # Fill remaining quota with cylinders
-        remaining = self.obstacle_count - obstacles_counter
-        for i in range(remaining):
-            self._try_place_random_cylinder(f"cylinder_{i + obstacles_counter}")
-
-    def _try_place_random_box(self, name: str, max_attempts: int = 50):
-        """Try to place a random box obstacle without collisions. Returns True if successful."""
-        box_template = {
-            "type": "box",
-            "movable": False,
-            "geometry": {
-                "position": [4.5, 2.25, 0.15],
-                "width": 1.2,
-                "height": 0.3,
-                "length": 2.2,
-            },
-            "low": {
-                "position": [2, 2, 0],
-                "width": 0.1,
-                "height": 0.1,
-                "length": 0.1,
-            },
-            "high": {
-                "position": [9, 5, 0.3],
-                "width": 2.0,
-                "height": 1.0,
-                "length": 2.0,
-            },
-            "rgba": [0.4, 0.4, 0.2, 1.0],
-        }
-
-        for _ in range(max_attempts):
-            box_obst = BoxObstacle(name=name, content_dict=box_template)
-            box_obst.shuffle()
-
-            if not self._has_collision_with_existing(box_obst):
-                self.obstacles_3d.append(box_obst)
-                self.env.add_obstacle(box_obst)
-                return True
-
-        return False
-
-    def _try_place_random_cylinder(self, name: str, max_attempts: int = 100):
-        """Try to place a random cylinder obstacle without collisions. Returns True if successful."""
-        cylinder_template = {
-            "type": "cylinder",
-            "movable": False,
-            "geometry": {
-                "position": [4.5, 2.25, 0.15],
-                "radius": 1.2,
-                "height": 0.3,
-            },
-            "low": {
-                "position": [2, 2, 0],
-                "radius": 0.02,
-                "height": 0.1,
-            },
-            "high": {
-                "position": [9, 5, 0.3],
-                "radius": 0.2,
-                "height": 3.0,
-            },
-            "rgba": [0.8, 0.4, 0.2, 1.0],
-        }
-
-        for _ in range(max_attempts):
-            cyl_obst = CylinderObstacle(name=name, content_dict=cylinder_template)
-            cyl_obst.shuffle()
-
-            if not self._has_collision_with_existing(cyl_obst):
-                self.obstacles_3d.append(cyl_obst)
-                self.env.add_obstacle(cyl_obst)
-                return True
-
-        return False
-
-    def _has_collision_with_existing(self, new_obstacle):
-        """Check if new obstacle collides with any existing obstacles."""
-        for existing in self.obstacles_3d:
-            if self.collision_check(new_obstacle, existing):
-                return True
-        return False
-
-    # Pre defined enviroment, random= False:
+    # Pre defined enviroment
 
     def _setup_predefined_obstacles(self, type="medium"):
         """Create predefined obstacle scenario with box, lego pile, and duplo wall."""
@@ -156,14 +51,14 @@ class PlaygroundEnv:
             # # Chair obstacle
             # pos_chair = [2,4]
             # self._create_chair_obstacle(pos_chair, name_prefix="chair1")
-            # self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            # self.goals.append((pos_chair[0], pos_chair[1], 0.1))
             # Closet obstacle
             pos_closet = [4, 0, 0.05]
             self._create_closet_obstacle(pos_closet)
-            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+            self.goals.append((pos_closet[0], pos_closet[1], 0.6))
 
             # second goal
-            self.chair_marker = [4, 3, 0.1]
+            self.goals.append((4, 3, 0.1))
 
             # Walls
             self._create_walls()
@@ -185,12 +80,12 @@ class PlaygroundEnv:
             # Chair obstacle
             pos_chair = [2, 4]
             self._create_chair_obstacle(pos_chair, name_prefix="chair1")
-            self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            self.goals.append((pos_chair[0], pos_chair[1], 0.1))
 
             # Closet obstacle
             pos_closet = [4, 0, 0.05]
             self._create_closet_obstacle(pos_closet)
-            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+            self.goals.append((pos_closet[0], pos_closet[1], 0.6))
 
             # Walls
             self._create_walls()
@@ -225,17 +120,17 @@ class PlaygroundEnv:
             target_1 = [2, 1, 0.0]
 
             target_2 = [4, 2, 0.0]
-            self.chair_marker = target_1
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_1))
+            self.goals.append(tuple(target_2))
 
         if type == "test":
             target_1 = [1, 1, 0.5]
-            self.chair_marker = target_1
+            self.goals.append(tuple(target_1))
 
             self._create_football_obstacle([1.5, 1.5, 0.11])
 
             target_2 = [2, 2, 0.0]
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_2))
 
         if type == "quantum_RRT":
             self._create_duplo_wall([1.5, -0.7, 0])
@@ -246,40 +141,35 @@ class PlaygroundEnv:
             self._create_walls()
 
             target_1 = [4, 1, 0.0]
-            self.chair_marker = target_1
+            self.goals.append(tuple(target_1))
             target_2 = [4, 4, 0.0]
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_2))
 
-    # def _create_lego_pile(self):
-    #     """Create scattered lego pieces near target area."""
-    #     random_offsets = np.random.uniform(-0.5, 0.5, 100)
+        if type == "mppi_test":
+            # Vertical block obstacle close to robot starting position
+            # Robot starts at approximately (0, 0), so place block at (0.6, 0.0)
+            vertical_block = {
+                "type": "box",
+                "movable": False,
+                "geometry": {
+                    "position": [0.7, 0.0, 0.3],
+                    "width": 0.15,  # thin in x direction
+                    "height": 0.4,  # tall in z direction
+                    "length": 1.0,  # long in y direction
+                },
+                "rgba": [0.3, 0.3, 0.7, 1.0],
+            }
+            block_obs = BoxObstacle(name="vertical_block", content_dict=vertical_block)
+            self.obstacles_3d.append(block_obs)
+            self.env.add_obstacle(block_obs)
 
-    #     for i in range(7):
-    #         # Try up to 50 times to place each lego without collision
-    #         for attempt in range(50):
-    #             lego = {
-    #                 "type": "box",
-    #                 "movable": True,
-    #                 "geometry": {
-    #                     "position": [
-    #                         float(3 + np.random.choice(random_offsets)),
-    #                         float(1.5 + np.random.choice(random_offsets)),
-    #                         0.05 + i * 0.2
-    #                     ],
-    #                     "orientation": [float(np.random.choice(random_offsets) * 2), 0, 0, 0.707],
-    #                     "width": 0.1,
-    #                     "height": 0.05,
-    #                     "length": 0.04,
-    #                 },
-    #                 "rgba": [0.4, 0.2, 0.2, 1.0]
-    #             }
+            # Target on left side of block (negative y)
+            target_left = [0.4, -0.4, 0.5]
+            self.goals.append(tuple(target_left))
 
-    #             box_obst = BoxObstacle(name=f"lego_{i}", content_dict=lego)
-
-    #             if not self._has_collision_with_existing(box_obst):
-    #                 self.obstacles_3d.append(box_obst)
-    #                 self.env.add_obstacle(box_obst)
-    #                 break
+            # Target on right side of block (positive y)
+            target_right = [0.4, 0.4, 0.5]
+            self.goals.append(tuple(target_right))
 
     def _create_lego_pile(self):
         """Create scattered lego pieces near target area."""
@@ -612,37 +502,9 @@ class PlaygroundEnv:
         Get list of graspable object goals from the environment.
 
         Returns:
-            List of dicts with:
-                - name: object identifier
-                - position: 3D numpy array [x, y, z]
-                - object_type: type of object (for planning params)
-                - radius: object approximate radius for safety
+            List of 3-tuples (x, y, z) representing goal positions
         """
-        goals = []
-
-        # Chair
-        if self.chair_marker:
-            goals.append(
-                {
-                    "name": "chair",
-                    "position": np.array(self.chair_marker),
-                    "object_type": "furniture",
-                    "radius": 0.5,  # Approximate object size
-                }
-            )
-
-        # Closet
-        if self.closet_marker:
-            goals.append(
-                {
-                    "name": "closet",
-                    "position": np.array(self.closet_marker),
-                    "object_type": "furniture",
-                    "radius": 0.6,
-                }
-            )
-
-        return goals
+        return self.goals
 
     def get_2d_obstacles(self):
         """

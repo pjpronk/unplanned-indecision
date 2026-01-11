@@ -4,7 +4,6 @@ from .path_visualizer import PathVisualizer
 from .playground import PlaygroundEnv
 from .arm_controller import ArmController
 from .mppi_arm_controller import MppiArmController
-from .robot_config import PandaConfig
 from .mission_state_machine import MissionStateMachine, State
 from .mission_planner import MissionPlanner, MissionConfig
 
@@ -15,7 +14,6 @@ __all__ = [
     "PlaygroundEnv",
     "ArmController",
     "MppiArmController",
-    "PandaConfig",
     "MissionStateMachine",
     "State",
     "MissionPlanner",

@@ -21,12 +21,12 @@ class RRTPlanner:
     def __init__(
         self,
         obstacles,
-        step_size=0.1,
-        max_iterations=1000,
-        goal_threshold=0.1,
-        bounds=(-3.0, 3.0, -3.0, 3.0),
-        robot_radius=0.3,
-        goal_sample_rate=0.10,
+        step_size,
+        max_iterations,
+        goal_threshold,
+        bounds,
+        robot_radius,
+        goal_sample_rate,
     ):
         """
         Initialize RRT planner.

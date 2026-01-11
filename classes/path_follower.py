@@ -50,7 +50,7 @@ class PathFollower:
             target_waypoint = self._get_current_waypoint(path)
 
         # Check if we're at the last waypoint
-        is_last_waypoint = (self.current_waypoint_idx >= len(path) - 1)
+        is_last_waypoint = self.current_waypoint_idx >= len(path) - 1
 
         # Compute action to move toward waypoint
         action = self._compute_action_to_waypoint(
@@ -74,7 +74,9 @@ class PathFollower:
         distance = np.linalg.norm(current_pos - target_waypoint)
         return distance < self.waypoint_threshold
 
-    def _compute_action_to_waypoint(self, current_pos, target_waypoint, action_size, final_target=None, is_last_waypoint=False):
+    def _compute_action_to_waypoint(
+        self, current_pos, target_waypoint, action_size, final_target=None, is_last_waypoint=False
+    ):
         """
         Compute action to move toward target waypoint.
         Basic proportional controller for mobile base.
@@ -112,7 +114,7 @@ class PathFollower:
         else:
             # Orient towards the next waypoint
             angle_to_target = np.arctan2(direction[1], direction[0])
-        
+
         action[2] = angle_to_target * 0.5
 
         return action

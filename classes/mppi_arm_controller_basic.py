@@ -5,13 +5,13 @@ import pybullet as p
 class MppiArmControllerBasic:
     """
     Basic/simple MPPI controller for a 7-DoF arm using a kinematic rollout model in PyBullet.
-    
+
     This is a simplified version with:
     - Fixed exploration noise (no adaptive sigma)
     - Linear distance cost (no exponential or terminal cost)
     - No IK warm-start
     - No action scaling near target
-    
+
     For the full-featured version, see MppiArmController in mppi_arm_controller.py
 
     - Rollouts are performed by resetting joint states (no dynamics).
@@ -19,8 +19,19 @@ class MppiArmControllerBasic:
     - Draws the best rollout (green) + a few colliding rollouts (red).
     """
 
-    def __init__(self, robot_id, robot_config, dt, horizon, n_samples, lambda_, sigma, 
-                 dist_weight, collision_cost, jerk_weight):
+    def __init__(
+        self,
+        robot_id,
+        robot_config,
+        dt,
+        horizon,
+        n_samples,
+        lambda_,
+        sigma,
+        dist_weight,
+        collision_cost,
+        jerk_weight,
+    ):
         self.robot_id = robot_id
         self.config = robot_config
 
@@ -99,7 +110,7 @@ class MppiArmControllerBasic:
         # MPPI update: weight rollouts by cost and shift the control sequence forward.
         min_cost = float(np.min(costs))
         weights = np.exp(-(costs - min_cost) / self.lambda_)
-        weights /= (np.sum(weights) + 1e-10)
+        weights /= np.sum(weights) + 1e-10
 
         for t in range(self.H):
             self.U[t] += np.sum(weights[:, None] * noise[:, t, :], axis=0)

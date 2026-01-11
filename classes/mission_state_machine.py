@@ -307,10 +307,13 @@ class MissionStateMachine:
             if dist_to_goal > self.robot_config.switch_distance:
                 # Get base velocities from path follower
                 base_vel = self.follower.follow(
-                    base_xy, self.path, self.robot_config.total_dof, final_target=mission.arm_goal_3d
+                    base_xy,
+                    self.path,
+                    self.robot_config.total_dof,
+                    final_target=mission.arm_goal_3d,
                 )
                 action[self.robot_config.base_slice] = base_vel[self.robot_config.base_slice]
-                
+
                 # Always orient towards the arm goal
                 arm_goal_2d = np.array(mission.arm_goal_3d[:2])
                 direction_to_goal = arm_goal_2d - base_xy

@@ -133,11 +133,14 @@ class RobotConfig:
 
     # Panda arm joint limits (radians)
     arm_joint_limits_lower: np.ndarray = field(
-        default_factory=lambda: np.array([-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973]),
+        default_factory=lambda: np.array(
+            [-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973]
+        ),
         init=False,
     )
     arm_joint_limits_upper: np.ndarray = field(
-        default_factory=lambda: np.array([2.8973, 1.7628, 2.8973, 0.0698, 2.8973, 3.7525, 2.8973]), init=False
+        default_factory=lambda: np.array([2.8973, 1.7628, 2.8973, 0.0698, 2.8973, 3.7525, 2.8973]),
+        init=False,
     )
 
     # Candle configuration (arm positioned in the air, safe for navigation)

@@ -6,7 +6,7 @@ class PathFollower:
     Path follower that computes actions to follow a given path.
     """
 
-    def __init__(self, forward_velocity=0.2, waypoint_threshold=0.1):
+    def __init__(self, forward_velocity, waypoint_threshold):
         """
         Initialize path follower.
 

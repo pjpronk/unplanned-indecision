@@ -25,7 +25,8 @@ class MppiArmController:
     ROLLOUT_STRIDE = 3
     DEBUG_LINE_LIFETIME = 0.2
 
-    def __init__(self, robot_id, robot_config, dt=0.05, horizon=30, n_samples=30):
+    def __init__(self, robot_id, robot_config, dt, horizon, n_samples, lambda_, sigma,
+                 dist_weight, terminal_dist_weight, collision_cost, jerk_weight, exp_decay_rate):
         self.robot_id = robot_id
         self.config = robot_config
 
@@ -33,19 +34,18 @@ class MppiArmController:
         self.dt = dt
         self.H = horizon
         self.K = n_samples
-        self.lambda_ = 0.001
-        self.sigma = 0.5  # Base exploration noise
+        self.lambda_ = lambda_
+        self.sigma = sigma
 
         # Cost weights
-        self.dist_weight = 100.0
-        self.terminal_dist_weight = 500.0  # Heavier weight for final state
-        # self.collision_cost = 10_000.0
-        self.collision_cost = 500.0
-        self.jerk_weight = 0.5
-        self.exp_decay_rate = 5.0  # Exponential decay rate for distance cost
+        self.dist_weight = dist_weight
+        self.terminal_dist_weight = terminal_dist_weight
+        self.collision_cost = collision_cost
+        self.jerk_weight = jerk_weight
+        self.exp_decay_rate = exp_decay_rate
 
         # Nominal control sequence (warm-started across calls)
-        self.U = np.zeros((self.H, self.config.ARM_DOF))
+        self.U = np.zeros((self.H, self.config.arm_dof))
 
         # Track previous target for re-initialization detection
         self.prev_target = None
@@ -67,11 +67,11 @@ class MppiArmController:
         adaptive_sigma = self._calculate_adaptive_sigma(target_array)
 
         # Calculate current distance to target for action scaling
-        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.ee_link_index)[0])
         dist_to_target = np.linalg.norm(current_ee_pos - target_array)
 
         # Generate noise for all rollouts
-        noise = np.random.normal(0.0, adaptive_sigma, size=(self.K, self.H, self.config.ARM_DOF))
+        noise = np.random.normal(0.0, adaptive_sigma, size=(self.K, self.H, self.config.arm_dof))
 
         # Perform rollouts and calculate costs
         rollout_paths, collision_mask, costs = self._perform_rollouts(
@@ -105,7 +105,7 @@ class MppiArmController:
 
     def _calculate_adaptive_sigma(self, target_array: np.ndarray) -> float:
         """Calculate adaptive exploration noise based on distance to target."""
-        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+        current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.ee_link_index)[0])
         dist_to_target = np.linalg.norm(current_ee_pos - target_array)
 
         # Scale from SIGMA_MIN_FACTOR (close) to SIGMA_MAX_FACTOR (far)
@@ -130,14 +130,14 @@ class MppiArmController:
 
         for k in range(self.K):
             self._reset_arm(current_q)
-            u_prev = np.zeros(self.config.ARM_DOF)
+            u_prev = np.zeros(self.config.arm_dof)
 
             for t in range(self.H):
                 u_t = np.clip(self.U[t] + noise[k, t], -1.0, 1.0)
                 self._step_kinematics(u_t)
                 p.performCollisionDetection()
 
-                ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+                ee_pos = np.array(p.getLinkState(self.robot_id, self.config.ee_link_index)[0])
                 rollout_paths[k, t] = ee_pos
 
                 dist = np.linalg.norm(ee_pos - target_array)
@@ -197,18 +197,18 @@ class MppiArmController:
         # Use PyBullet IK to get target joint configuration
         ik_solution = p.calculateInverseKinematics(
             self.robot_id,
-            self.config.EE_LINK_INDEX,
+            self.config.ee_link_index,
             target_pos,
             maxNumIterations=100,
             residualThreshold=0.001,
         )
 
         # Extract arm joints from IK solution
-        target_q = np.array(ik_solution[self.config.ARM_OBS_SLICE])
+        target_q = np.array(ik_solution[self.config.arm_obs_slice])
 
         # Clamp to joint limits
         target_q = np.clip(
-            target_q, self.config.ARM_JOINT_LIMITS_LOWER, self.config.ARM_JOINT_LIMITS_UPPER
+            target_q, self.config.arm_joint_limits_lower, self.config.arm_joint_limits_upper
         )
 
         # Calculate velocity needed to reach target over the horizon
@@ -292,11 +292,11 @@ class MppiArmController:
     def _reset_arm(self, q):
         """Reset arm joints to q and grippers to closed position."""
         # Reset arm joints
-        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
+        for i, joint_idx in enumerate(self.config.arm_joint_indices):
             p.resetJointState(self.robot_id, joint_idx, q[i])
 
         # Reset grippers to closed (0 position)
-        for gripper_idx in self.config.GRIPPER_JOINT_INDICES:
+        for gripper_idx in self.config.gripper_joint_indices:
             p.resetJointState(self.robot_id, gripper_idx, 0.0)
 
     def _step_kinematics(self, u):
@@ -304,12 +304,12 @@ class MppiArmController:
         Integrate joint velocities for one timestep and clamp to joint limits.
         This is a kinematic step (no dynamics).
         """
-        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
+        for i, joint_idx in enumerate(self.config.arm_joint_indices):
             curr = p.getJointState(self.robot_id, joint_idx)[0]
             new_pos = curr + u[i] * self.dt
             new_pos = np.clip(
                 new_pos,
-                self.config.ARM_JOINT_LIMITS_LOWER[i],
-                self.config.ARM_JOINT_LIMITS_UPPER[i],
+                self.config.arm_joint_limits_lower[i],
+                self.config.arm_joint_limits_upper[i],
             )
             p.resetJointState(self.robot_id, joint_idx, new_pos)

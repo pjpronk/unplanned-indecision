@@ -19,7 +19,8 @@ class MppiArmControllerBasic:
     - Draws the best rollout (green) + a few colliding rollouts (red).
     """
 
-    def __init__(self, robot_id, robot_config, dt=0.05, horizon=30, n_samples=30):
+    def __init__(self, robot_id, robot_config, dt, horizon, n_samples, lambda_, sigma, 
+                 dist_weight, collision_cost, jerk_weight):
         self.robot_id = robot_id
         self.config = robot_config
 
@@ -27,16 +28,16 @@ class MppiArmControllerBasic:
         self.dt = dt
         self.H = horizon
         self.K = n_samples
-        self.lambda_ = 0.001
-        self.sigma = 0.3
+        self.lambda_ = lambda_
+        self.sigma = sigma
 
         # Cost weights
-        self.dist_weight = 10.0
-        self.collision_cost = 10_000.0
-        self.jerk_weight = 1.0
+        self.dist_weight = dist_weight
+        self.collision_cost = collision_cost
+        self.jerk_weight = jerk_weight
 
         # Nominal control sequence (warm-started across calls)
-        self.U = np.zeros((self.H, self.config.ARM_DOF))
+        self.U = np.zeros((self.H, self.config.arm_dof))
 
     def compute_action(self, current_q, target_pos, target_body_id=None):
         """
@@ -49,7 +50,7 @@ class MppiArmControllerBasic:
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         state_id = p.saveState()
 
-        noise = np.random.normal(0.0, self.sigma, size=(self.K, self.H, self.config.ARM_DOF))
+        noise = np.random.normal(0.0, self.sigma, size=(self.K, self.H, self.config.arm_dof))
         costs = np.zeros(self.K)
 
         # Store EE paths for drawing (K rollouts, H steps, 3D point)
@@ -58,7 +59,7 @@ class MppiArmControllerBasic:
 
         for k in range(self.K):
             self._reset_arm(current_q)
-            u_prev = np.zeros(self.config.ARM_DOF)
+            u_prev = np.zeros(self.config.arm_dof)
 
             for t in range(self.H):
                 u_t = np.clip(self.U[t] + noise[k, t], -1.0, 1.0)
@@ -67,7 +68,7 @@ class MppiArmControllerBasic:
                 # Make sure contact queries reflect the new joint states
                 p.performCollisionDetection()
 
-                ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
+                ee_pos = np.array(p.getLinkState(self.robot_id, self.config.ee_link_index)[0])
                 rollout_paths[k, t] = ee_pos
 
                 dist = np.linalg.norm(ee_pos - np.array(target_pos))
@@ -177,11 +178,11 @@ class MppiArmControllerBasic:
     def _reset_arm(self, q):
         """Reset arm joints to q and grippers to closed position."""
         # Reset arm joints
-        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
+        for i, joint_idx in enumerate(self.config.arm_joint_indices):
             p.resetJointState(self.robot_id, joint_idx, q[i])
 
         # Reset grippers to closed (0 position)
-        for gripper_idx in self.config.GRIPPER_JOINT_INDICES:
+        for gripper_idx in self.config.gripper_joint_indices:
             p.resetJointState(self.robot_id, gripper_idx, 0.0)
 
     def _step_kinematics(self, u):
@@ -189,12 +190,12 @@ class MppiArmControllerBasic:
         Integrate joint velocities for one timestep and clamp to joint limits.
         This is a kinematic step (no dynamics).
         """
-        for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
+        for i, joint_idx in enumerate(self.config.arm_joint_indices):
             curr = p.getJointState(self.robot_id, joint_idx)[0]
             new_pos = curr + u[i] * self.dt
             new_pos = np.clip(
                 new_pos,
-                self.config.ARM_JOINT_LIMITS_LOWER[i],
-                self.config.ARM_JOINT_LIMITS_UPPER[i],
+                self.config.arm_joint_limits_lower[i],
+                self.config.arm_joint_limits_upper[i],
             )
             p.resetJointState(self.robot_id, joint_idx, new_pos)

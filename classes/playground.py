@@ -1,6 +1,5 @@
 import numpy as np
 
-from urdfenvs.urdf_common.urdf_env import UrdfEnv
 from mpscenes.obstacles.sphere_obstacle import SphereObstacle
 from mpscenes.obstacles.box_obstacle import BoxObstacle
 from mpscenes.obstacles.cylinder_obstacle import CylinderObstacle
@@ -11,10 +10,10 @@ class PlaygroundEnv:
     Environment that manages obstacles and provides both 3D PyBullet simulation
     and 2D obstacle data for RRT path planning.
 
-    Can generate either predefined or random obstacles with collision avoidance.
+    Creates predefined obstacle scenarios.
     """
 
-    def __init__(self, env, end_pos, robot_radius, random=False, obstacle_count=25):
+    def __init__(self, env, end_pos, robot_radius, type):
         """
         Initialize PlaygroundEnv obstacle manager.
 
@@ -22,12 +21,10 @@ class PlaygroundEnv:
             env: UrdfEnv instance to populate with obstacles
             end_pos: End position as tuple (x, y, z)
             robot_radius: Robot radius for collision checking
-            random: Generate random obstacles if True, predefined otherwise
-            obstacle_count: Number of obstacles to generate (random mode only)
+            type: Predefined scenario type
         """
         self.env = env
-        self.random = random
-        self.obstacle_count = obstacle_count
+        self.type = type
         self.obstacles_3d = []
         self.end_pos = end_pos
         self.r_robot = robot_radius
@@ -37,111 +34,10 @@ class PlaygroundEnv:
         self.setup_obstacles()
 
     def setup_obstacles(self):
-        """
-        Set up obstacles in the environment.
+        """Set up obstacles in the environment using predefined scenarios."""
+        self._setup_predefined_obstacles(type=self.type)
 
-        If random=True: generates random boxes and cylinders with collision avoidance
-        If random=False: creates predefined scenario with box, lego pile, and duplo wall
-        """
-        if self.random:
-            self._setup_random_obstacles()
-
-        else:
-            self._setup_predefined_obstacles(type="easy")
-
-    def _setup_random_obstacles(self):
-        """Generate random boxes and cylinders with collision avoidance."""
-        obstacles_counter = 0
-
-        # Try to place boxes
-        for i in range(self.obstacle_count):
-            if self._try_place_random_box(f"box_{i}"):
-                obstacles_counter += 1
-
-        # Fill remaining quota with cylinders
-        remaining = self.obstacle_count - obstacles_counter
-        for i in range(remaining):
-            self._try_place_random_cylinder(f"cylinder_{i + obstacles_counter}")
-
-    def _try_place_random_box(self, name: str, max_attempts: int = 50):
-        """Try to place a random box obstacle without collisions. Returns True if successful."""
-        box_template = {
-            "type": "box",
-            "movable": False,
-            "geometry": {
-                "position": [4.5, 2.25, 0.15],
-                "width": 1.2,
-                "height": 0.3,
-                "length": 2.2,
-            },
-            "low": {
-                "position": [2, 2, 0],
-                "width": 0.1,
-                "height": 0.1,
-                "length": 0.1,
-            },
-            "high": {
-                "position": [9, 5, 0.3],
-                "width": 2.0,
-                "height": 1.0,
-                "length": 2.0,
-            },
-            "rgba": [0.4, 0.4, 0.2, 1.0],
-        }
-
-        for _ in range(max_attempts):
-            box_obst = BoxObstacle(name=name, content_dict=box_template)
-            box_obst.shuffle()
-
-            if not self._has_collision_with_existing(box_obst):
-                self.obstacles_3d.append(box_obst)
-                self.env.add_obstacle(box_obst)
-                return True
-
-        return False
-
-    def _try_place_random_cylinder(self, name: str, max_attempts: int = 100):
-        """Try to place a random cylinder obstacle without collisions. Returns True if successful."""
-        cylinder_template = {
-            "type": "cylinder",
-            "movable": False,
-            "geometry": {
-                "position": [4.5, 2.25, 0.15],
-                "radius": 1.2,
-                "height": 0.3,
-            },
-            "low": {
-                "position": [2, 2, 0],
-                "radius": 0.02,
-                "height": 0.1,
-            },
-            "high": {
-                "position": [9, 5, 0.3],
-                "radius": 0.2,
-                "height": 3.0,
-            },
-            "rgba": [0.8, 0.4, 0.2, 1.0],
-        }
-
-        for _ in range(max_attempts):
-            cyl_obst = CylinderObstacle(name=name, content_dict=cylinder_template)
-            cyl_obst.shuffle()
-
-            if not self._has_collision_with_existing(cyl_obst):
-                self.obstacles_3d.append(cyl_obst)
-                self.env.add_obstacle(cyl_obst)
-                return True
-
-        return False
-
-    def _has_collision_with_existing(self, new_obstacle):
-        """Check if new obstacle collides with any existing obstacles."""
-        for existing in self.obstacles_3d:
-            if self.collision_check(new_obstacle, existing):
-                return True
-        return False
-
-    # Pre defined enviroment, random= False:
+    # Pre defined enviroment
 
     def _setup_predefined_obstacles(self, type="medium"):
         """Create predefined obstacle scenario with box, lego pile, and duplo wall."""

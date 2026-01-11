@@ -8,7 +8,7 @@ class ArmController:
     Can drive to candle (straight up) position or use IK to reach targets.
     """
 
-    def __init__(self, robot_id, robot_config, dt=0.01, kp=10.5, max_vel=0.5):
+    def __init__(self, robot_id, robot_config, dt, kp, max_vel):
         self.robot_id = robot_id
         self.config = robot_config
         self.dt = dt
@@ -16,7 +16,7 @@ class ArmController:
         self.max_vel = max_vel
 
         # Target: Candle configuration (straight up)
-        self.target_configuration = self.config.CANDLE_CONFIGURATION
+        self.target_configuration = self.config.candle_configuration
 
     def _solve_inverse_kinematics(self, target_pos_3d):
         """
@@ -35,11 +35,11 @@ class ArmController:
 
         # Ask PyBullet to solve IK for the arm
         ik_solution = p.calculateInverseKinematics(
-            self.robot_id, self.config.EE_LINK_INDEX, target_pos_3d
+            self.robot_id, self.config.ee_link_index, target_pos_3d
         )
 
         # Extract arm joints from IK solution
-        target_arm_joints = np.array(ik_solution[self.config.ARM_OBS_SLICE])
+        target_arm_joints = np.array(ik_solution[self.config.arm_obs_slice])
 
         return target_arm_joints
 

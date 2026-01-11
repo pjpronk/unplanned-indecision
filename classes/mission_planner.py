@@ -7,10 +7,8 @@ import math
 class MissionConfig:
     """Mission parameters for navigation and reaching."""
 
-    base_goal_2d: np.ndarray
+    base_goal_2d: tuple
     arm_goal_3d: tuple
-    switch_distance: float = 0.15
-    forward_velocity: float = 1.5
 
 
 class MissionPlanner:
@@ -19,42 +17,45 @@ class MissionPlanner:
     Computes safe base positions and generates MissionConfig objects.
     """
 
-    def __init__(self, robot_radius: float = 0.3, obstacles_2d: list = None):
+    def __init__(self, robot_radius, obstacles_2d):
         self.robot_radius = robot_radius
         self.obstacles_2d = obstacles_2d or []
 
-    def plan_missions(self, goals: list, robot_start_pos: np.ndarray = None) -> list:
+    def plan_missions(self, goals):
+        """
+        Plans missions for multiple goals.
+
+        Args:
+            goals: List of 3-tuples (x, y, z) representing goal positions
+        Returns:
+            List of MissionConfig objects, one per successfully planned goal
+        """
         missions = []
         for goal in goals:
-            mission = self._plan_single_mission(goal, robot_start_pos)
+            mission = self._plan_single_mission(goal)
             if mission:
                 missions.append(mission)
         return missions
 
-    def _plan_single_mission(self, goal: dict, robot_pos: np.ndarray = None) -> MissionConfig:
-        arm_goal_3d = tuple(goal["position"])
-        base_goal_2d = self._better_landing_zones(goal)[0]
-
-        switch_distance, velocity = self._get_mission_params(goal)
+    def _plan_single_mission(self, goal):
+        """
+        Plans a single mission by computing base position and creating MissionConfig
+        """
+        arm_goal_3d = goal
+        base_goal_2d = tuple(self._better_landing_zones(goal)[0])
 
         return MissionConfig(
             base_goal_2d=base_goal_2d,
             arm_goal_3d=arm_goal_3d,
-            switch_distance=switch_distance,
-            forward_velocity=velocity,
         )
 
-    # ------------------------------------------------------------------
-    # THIS IS THE ONLY METHOD THAT MEANINGFULLY CHANGED
-    # ------------------------------------------------------------------
-
-    def _better_landing_zones(self, goal: dict) -> list:
+    def _better_landing_zones(self, goal):
         """
         Generate and rank base goal positions around the object.
         Returns a list sorted from best to worst.
         """
 
-        goal_2d = np.array(goal["position"][:2])
+        goal_2d = np.array(goal[:2])
         safe_radius = self.robot_radius + 0.3
 
         # Front-biased sampling (relative to world x-axis)
@@ -66,15 +67,14 @@ class MissionPlanner:
             direction = np.array([math.cos(angle), math.sin(angle)])
             base_goal = goal_2d - direction * safe_radius
 
-            # Hard bounds (keep your original intent)
             if not (-0.5 < base_goal[0] < 5 and -0.5 < base_goal[1] < 6):
                 continue
 
             if self._check_collision(base_goal):
                 continue
 
-            clearance = self._forward_clearance(base_goal, goal_2d)
-            score = clearance  # simple, honest heuristic
+            clearance = self._forward_clearance(base_goal, goal_2d, 2.0)
+            score = clearance
 
             candidates.append((score, base_goal))
 
@@ -86,11 +86,7 @@ class MissionPlanner:
 
         return [c[1] for c in candidates]
 
-    # ------------------------------------------------------------------
-
-    def _forward_clearance(
-        self, base: np.ndarray, goal_2d: np.ndarray, max_dist: float = 2.0
-    ) -> float:
+    def _forward_clearance(self, base, goal_2d, max_dist):
         """
         Measures free space between base and object along approach direction.
         """
@@ -113,18 +109,12 @@ class MissionPlanner:
 
         return traveled
 
-    # ------------------------------------------------------------------
+    #
+    def _check_collision(self, base_goal):
+        """
+        Checks if base position collides with any obstacle (sphere, cylinder, or box)
+        """
 
-    def _get_mission_params(self, goal: dict) -> tuple:
-        object_type = goal.get("object_type", "default")
-        params = {
-            "furniture": (0.1, 1.2),
-            "small_object": (0.1, 1.5),
-            "default": (0.1, 1.5),
-        }
-        return params.get(object_type, params["default"])
-
-    def _check_collision(self, base_goal: np.ndarray) -> bool:
         x = float(base_goal[0])
         y = float(base_goal[1])
         r_robot = float(self.robot_radius)

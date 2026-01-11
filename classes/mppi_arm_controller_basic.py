@@ -85,10 +85,9 @@ class MppiArmControllerBasic:
                 dist = np.linalg.norm(ee_pos - np.array(target_pos))
                 collided, hit_body_id = self._check_collision(target_body_id)
 
+                # Mark this rollout as colliding if any step collides
                 if collided:
                     collision_mask[k] = True
-                    # Note: this can be spammy; kept because your original code prints.
-                    print(f"CRASH: Hit object ID {hit_body_id}")
 
                 jerk = np.linalg.norm(u_t - u_prev)
                 u_prev = u_t

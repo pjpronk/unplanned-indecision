@@ -28,8 +28,7 @@ class PlaygroundEnv:
         self.obstacles_3d = []
         self.end_pos = end_pos
         self.r_robot = robot_radius
-        self.chair_marker = []
-        self.closet_marker = []
+        self.goals = []
 
         self.setup_obstacles()
 
@@ -52,14 +51,14 @@ class PlaygroundEnv:
             # # Chair obstacle
             # pos_chair = [2,4]
             # self._create_chair_obstacle(pos_chair, name_prefix="chair1")
-            # self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            # self.goals.append((pos_chair[0], pos_chair[1], 0.1))
             # Closet obstacle
             pos_closet = [4, 0, 0.05]
             self._create_closet_obstacle(pos_closet)
-            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+            self.goals.append((pos_closet[0], pos_closet[1], 0.6))
 
             # second goal
-            self.chair_marker = [4, 3, 0.1]
+            self.goals.append((4, 3, 0.1))
 
             # Walls
             self._create_walls()
@@ -81,12 +80,12 @@ class PlaygroundEnv:
             # Chair obstacle
             pos_chair = [2, 4]
             self._create_chair_obstacle(pos_chair, name_prefix="chair1")
-            self.chair_marker = [pos_chair[0], pos_chair[1], 0.1]
+            self.goals.append((pos_chair[0], pos_chair[1], 0.1))
 
             # Closet obstacle
             pos_closet = [4, 0, 0.05]
             self._create_closet_obstacle(pos_closet)
-            self.closet_marker = [pos_closet[0], pos_closet[1], 0.6]
+            self.goals.append((pos_closet[0], pos_closet[1], 0.6))
 
             # Walls
             self._create_walls()
@@ -121,17 +120,17 @@ class PlaygroundEnv:
             target_1 = [2, 1, 0.0]
 
             target_2 = [4, 2, 0.0]
-            self.chair_marker = target_1
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_1))
+            self.goals.append(tuple(target_2))
 
         if type == "test":
             target_1 = [1, 1, 0.5]
-            self.chair_marker = target_1
+            self.goals.append(tuple(target_1))
 
             self._create_football_obstacle([1.5, 1.5, 0.11])
 
             target_2 = [2, 2, 0.0]
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_2))
 
         if type == "quantum_RRT":
             self._create_duplo_wall([1.5, -0.7, 0])
@@ -142,40 +141,35 @@ class PlaygroundEnv:
             self._create_walls()
 
             target_1 = [4, 1, 0.0]
-            self.chair_marker = target_1
+            self.goals.append(tuple(target_1))
             target_2 = [4, 4, 0.0]
-            self.closet_marker = target_2
+            self.goals.append(tuple(target_2))
 
-    # def _create_lego_pile(self):
-    #     """Create scattered lego pieces near target area."""
-    #     random_offsets = np.random.uniform(-0.5, 0.5, 100)
+        if type == "mppi_test":
+            # Vertical block obstacle close to robot starting position
+            # Robot starts at approximately (0, 0), so place block at (0.6, 0.0)
+            vertical_block = {
+                "type": "box",
+                "movable": False,
+                "geometry": {
+                    "position": [0.7, 0.0, 0.3],
+                    "width": 0.15,  # thin in x direction
+                    "height": 0.4,  # tall in z direction
+                    "length": 1.0,  # long in y direction
+                },
+                "rgba": [0.3, 0.3, 0.7, 1.0],
+            }
+            block_obs = BoxObstacle(name="vertical_block", content_dict=vertical_block)
+            self.obstacles_3d.append(block_obs)
+            self.env.add_obstacle(block_obs)
 
-    #     for i in range(7):
-    #         # Try up to 50 times to place each lego without collision
-    #         for attempt in range(50):
-    #             lego = {
-    #                 "type": "box",
-    #                 "movable": True,
-    #                 "geometry": {
-    #                     "position": [
-    #                         float(3 + np.random.choice(random_offsets)),
-    #                         float(1.5 + np.random.choice(random_offsets)),
-    #                         0.05 + i * 0.2
-    #                     ],
-    #                     "orientation": [float(np.random.choice(random_offsets) * 2), 0, 0, 0.707],
-    #                     "width": 0.1,
-    #                     "height": 0.05,
-    #                     "length": 0.04,
-    #                 },
-    #                 "rgba": [0.4, 0.2, 0.2, 1.0]
-    #             }
+            # Target on left side of block (negative y)
+            target_left = [0.4, -0.4, 0.5]
+            self.goals.append(tuple(target_left))
 
-    #             box_obst = BoxObstacle(name=f"lego_{i}", content_dict=lego)
-
-    #             if not self._has_collision_with_existing(box_obst):
-    #                 self.obstacles_3d.append(box_obst)
-    #                 self.env.add_obstacle(box_obst)
-    #                 break
+            # Target on right side of block (positive y)
+            target_right = [0.4, 0.4, 0.5]
+            self.goals.append(tuple(target_right))
 
     def _create_lego_pile(self):
         """Create scattered lego pieces near target area."""
@@ -508,37 +502,9 @@ class PlaygroundEnv:
         Get list of graspable object goals from the environment.
 
         Returns:
-            List of dicts with:
-                - name: object identifier
-                - position: 3D numpy array [x, y, z]
-                - object_type: type of object (for planning params)
-                - radius: object approximate radius for safety
+            List of 3-tuples (x, y, z) representing goal positions
         """
-        goals = []
-
-        # Chair
-        if self.chair_marker:
-            goals.append(
-                {
-                    "name": "chair",
-                    "position": np.array(self.chair_marker),
-                    "object_type": "furniture",
-                    "radius": 0.5,  # Approximate object size
-                }
-            )
-
-        # Closet
-        if self.closet_marker:
-            goals.append(
-                {
-                    "name": "closet",
-                    "position": np.array(self.closet_marker),
-                    "object_type": "furniture",
-                    "radius": 0.6,
-                }
-            )
-
-        return goals
+        return self.goals
 
     def get_2d_obstacles(self):
         """

@@ -35,6 +35,7 @@ class PlaygroundType(Enum):
     MEDIUM = "medium"
     HARD = "hard"
     QUANTUM_RRT = "quantum_RRT"
+    MPPI_TEST = "mppi_test"
 
 
 @dataclass
@@ -164,11 +165,6 @@ class ScenarioConfig:
     show_initial_environment: bool = True
 
 
-# ============================================================================
-# Configuration Presets
-# ============================================================================
-
-
 class ConfigPresets:
     """Predefined configuration presets for common test scenarios"""
 
@@ -241,118 +237,66 @@ class ConfigPresets:
         return robot, scenario
 
     @staticmethod
-    def fast_prototyping():
-        """Quick iterations for development/debugging"""
+    def mppi_basic_test():
+        """Test basic MPPI with simple obstacle - stationary robot, arm only"""
         robot = RobotConfig()
         robot.mppi = MPPIConfig()
         robot.mppi.version = MPPIVersion.BASIC
-        robot.mppi.horizon = 15
-        robot.mppi.n_samples = 20
+        robot.mppi.horizon = 20
+        robot.mppi.n_samples = 50
+        robot.mppi.dist_weight = 50.0
+        robot.mppi.collision_cost = 100.0
 
         robot.planner = PlannerConfig()
         robot.planner.version = PlannerVersion.SIMPLE
-        robot.planner.max_iterations = 500
+        robot.planner.max_iterations = 1000
 
         scenario = ScenarioConfig()
-        scenario.name = "fast_prototyping"
-        scenario.playground_type = PlaygroundType.EASY
+        scenario.name = "mppi_basic_test"
+        scenario.playground_type = PlaygroundType.MPPI_TEST
         scenario.render = True
-        scenario.show_path_plots = False
-        scenario.n_steps = 5000
+
+        return robot, scenario
+
+    @staticmethod
+    def mppi_advanced_test():
+        """Test advanced MPPI with simple obstacle - stationary robot, arm only"""
+        robot = RobotConfig()
+        robot.mppi = MPPIConfig()
+        robot.mppi.version = MPPIVersion.ADVANCED
+        robot.mppi.horizon = 25
+        robot.mppi.n_samples = 80
+        robot.mppi.dist_weight = 80.0
+        robot.mppi.terminal_dist_weight = 200.0
+        robot.mppi.collision_cost = 150.0
+
+        robot.planner = PlannerConfig()
+        robot.planner.version = PlannerVersion.SIMPLE
+        robot.planner.max_iterations = 1000
+
+        scenario = ScenarioConfig()
+        scenario.name = "mppi_advanced_test"
+        scenario.playground_type = PlaygroundType.MPPI_TEST
+        scenario.render = True
 
         return robot, scenario
 
 
-# ============================================================================
-# Main Execution
-# ============================================================================
-
-
-def run_mobile_reacher(robot_config, scenario_config):
-    """
-    Run a complete mission with the given configuration.
-
-    Args:
-        robot_config: RobotConfig instance
-        scenario_config: ScenarioConfig instance
-
-    Returns:
-        list: Observation history
-    """
-    # Create and initialize the state machine - it handles everything
-    state_machine = MissionStateMachine(robot_config, scenario_config)
-
-    # Run the mission
-    history = state_machine.run()
-
-    return history
-
-
-def run_comparison_study():
-    """Compare different configurations"""
-    configs = {
-        "simple": ConfigPresets.simple_test(),
-        "advanced": ConfigPresets.advanced_smooth(),
-        "optimal": ConfigPresets.optimal_star(),
-    }
-
-    results = {}
-    for name, (robot_cfg, scenario_cfg) in configs.items():
-        print(f"\n{'=' * 60}")
-        print(f"Running: {name}")
-        print(f"{'=' * 60}")
-
-        history = run_mobile_reacher(robot_cfg, scenario_cfg)
-        results[name] = {
-            "steps": len(history),
-            "config": scenario_cfg.name,
-        }
-
-    print("\n\nComparison Results:")
-    print("=" * 60)
-    for name, result in results.items():
-        print(f"{name:20s}: {result['steps']:6d} steps")
-
-    return results
-
-
 if __name__ == "__main__":
-    # Choose your test configuration
+    robot_cfg, scenario_cfg = ConfigPresets.mppi_advanced_test()
 
-    # Option 1: Use a preset
-    robot_cfg, scenario_cfg = ConfigPresets.simple_test()
+    # Determine if stationary mode based on playground type
+    stationary_mode = scenario_cfg.playground_type == PlaygroundType.MPPI_TEST
 
-    # Option 2: Use a different preset
-    # robot_cfg, scenario_cfg = ConfigPresets.advanced_smooth()
-    # robot_cfg, scenario_cfg = ConfigPresets.optimal_star()
-    # robot_cfg, scenario_cfg = ConfigPresets.fast_prototyping()
-
-    # Option 3: Custom configuration
-    # robot_cfg = RobotConfig()
-    # robot_cfg.mppi = MPPIConfig()
-    # robot_cfg.mppi.version = MPPIVersion.ADVANCED
-    # robot_cfg.mppi.horizon = 40
-    # robot_cfg.planner = PlannerConfig()
-    # robot_cfg.planner.version = PlannerVersion.STAR
-    # scenario_cfg = ScenarioConfig()
-    # scenario_cfg.playground_type = PlaygroundType.HARD
-    # scenario_cfg.render = True
-
-    # Option 4: Modify a preset
-    # robot_cfg, scenario_cfg = ConfigPresets.advanced_smooth()
-    # robot_cfg.mppi.n_samples = 200  # Increase samples
-    # scenario_cfg.render = False  # Run headless for speed
-
-    # Option 5: Run comparison study
-    # run_comparison_study()
-    # exit()
-
-    print(f"\n{'=' * 60}")
+    print(f"\n{'-' * 60}")
     print(f"Running scenario: {scenario_cfg.name}")
     print(f"MPPI: {robot_cfg.mppi.version.value}")
     print(f"Planner: {robot_cfg.planner.version.value}")
     print(f"Environment: {scenario_cfg.playground_type.value}")
-    print(f"{'=' * 60}\n")
+    print(f"Stationary Mode: {stationary_mode}")
+    print(f"{'-' * 60}\n")
 
-    history = run_mobile_reacher(robot_cfg, scenario_cfg)
+    state_machine = MissionStateMachine(robot_cfg, scenario_cfg, stationary_mode=stationary_mode)
+
+    history = state_machine.run()
     print(f"\nCompleted with {len(history)} steps of history")

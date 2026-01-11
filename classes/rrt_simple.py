@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Tuple
 
 Point = Tuple[float, float]
 
+
 class Node:
     def __init__(self, p: Point):
         self.p = p
@@ -17,12 +18,19 @@ class RRTPlanner:
     Independent of path following.
     """
 
-    def __init__(self, obstacles, step_size=0.1, max_iterations=1000, 
-                 goal_threshold=0.1, bounds=(-3.0, 3.0, -3.0, 3.0), 
-                 robot_radius=0.3, goal_sample_rate=0.10):
+    def __init__(
+        self,
+        obstacles,
+        step_size=0.1,
+        max_iterations=1000,
+        goal_threshold=0.1,
+        bounds=(-3.0, 3.0, -3.0, 3.0),
+        robot_radius=0.3,
+        goal_sample_rate=0.10,
+    ):
         """
         Initialize RRT planner.
-        
+
         Args:
             obstacles: List of 2D obstacle dictionaries from ObstacleManager.get_2d_obstacles()
             step_size: Step size for RRT tree extension
@@ -39,8 +47,8 @@ class RRTPlanner:
         self.bounds = bounds
         self.robot_radius = robot_radius
         self.goal_sample_rate = goal_sample_rate
-        self.current_path = None    
-    
+        self.current_path = None
+
     def plan_path(self, start, target):
         """Plan a path from start to target using RRT (2D).
 
@@ -125,21 +133,17 @@ class RRTPlanner:
         # Handles tuples/lists/numpy arrays
         return (float(xy[0]), float(xy[1]))
 
-
     @staticmethod
     def _dist(a: Point, b: Point) -> float:
         return math.hypot(a[0] - b[0], a[1] - b[1])
-
 
     @staticmethod
     def _clamp(v, lo, hi):
         return max(lo, min(hi, v))
 
-
     @staticmethod
     def _point_in_aabb(p: Point, center: Point, half_w: float, half_h: float) -> bool:
         return (abs(p[0] - center[0]) <= half_w) and (abs(p[1] - center[1]) <= half_h)
-
 
     @staticmethod
     def _seg_circle_collision(a: Point, b: Point, c: Point, r: float) -> bool:
@@ -160,11 +164,14 @@ class RRTPlanner:
         closest = (ax + t * abx, ay + t * aby)
         return RRTPlanner._dist(closest, c) <= r
 
-
-    def _seg_aabb_collision(self, a: Point, b: Point, center: Point, half_w: float, half_h: float) -> bool:
+    def _seg_aabb_collision(
+        self, a: Point, b: Point, center: Point, half_w: float, half_h: float
+    ) -> bool:
         # Segment vs axis-aligned bounding box using "slab" intersection
         # Expand: also catches start/end inside box.
-        if RRTPlanner._point_in_aabb(a, center, half_w, half_h) or RRTPlanner._point_in_aabb(b, center, half_w, half_h):
+        if RRTPlanner._point_in_aabb(a, center, half_w, half_h) or RRTPlanner._point_in_aabb(
+            b, center, half_w, half_h
+        ):
             return True
 
         ax, ay = a
@@ -206,8 +213,9 @@ class RRTPlanner:
         # If we got here, segment intersects box
         return True
 
-
-    def _segment_hits_any_obstacle(self, a: Point, b: Point, obstacles: List[Dict[str, Any]], robot_radius: float = 0.0) -> bool:
+    def _segment_hits_any_obstacle(
+        self, a: Point, b: Point, obstacles: List[Dict[str, Any]], robot_radius: float = 0.0
+    ) -> bool:
         for obs in obstacles:
             t = obs.get("type", "").lower()
             pos = RRTPlanner._as_point(obs["position"])
@@ -230,14 +238,12 @@ class RRTPlanner:
 
         return False
 
-
     def _steer(self, from_p: Point, to_p: Point, step_size: float) -> Point:
         d = RRTPlanner._dist(from_p, to_p)
         if d <= step_size:
             return to_p
         ux, uy = (to_p[0] - from_p[0]) / d, (to_p[1] - from_p[1]) / d
         return (from_p[0] + step_size * ux, from_p[1] + step_size * uy)
-
 
     def _nearest(self, nodes: List[Node], p: Point) -> int:
         best_i = 0

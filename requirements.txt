@@ -2,3 +2,4 @@ numpy
 urdfenvs
 pybullet
 matplotlib
+ruff

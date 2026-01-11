@@ -13,13 +13,13 @@ class MppiArmController:
     """
 
     # Adaptive exploration constants
-    SIGMA_MIN_FACTOR = 0.3      # Minimum exploration (when close to target)
-    SIGMA_MAX_FACTOR = 1.0      # Maximum exploration (when far from target)
-    ADAPTIVE_DISTANCE = 0.5     # Distance threshold for adaptive scaling (meters)
-    
+    SIGMA_MIN_FACTOR = 0.3  # Minimum exploration (when close to target)
+    SIGMA_MAX_FACTOR = 1.0  # Maximum exploration (when far from target)
+    ADAPTIVE_DISTANCE = 0.5  # Distance threshold for adaptive scaling (meters)
+
     # Warm-start threshold
     TARGET_CHANGE_THRESHOLD = 0.01  # Re-initialize if target moves >1cm
-    
+
     # Visualization constants
     MAX_COLLISION_PATHS_DRAWN = 3
     ROLLOUT_STRIDE = 3
@@ -46,7 +46,7 @@ class MppiArmController:
 
         # Nominal control sequence (warm-started across calls)
         self.U = np.zeros((self.H, self.config.ARM_DOF))
-        
+
         # Track previous target for re-initialization detection
         self.prev_target = None
 
@@ -62,56 +62,59 @@ class MppiArmController:
         if self._should_reinitialize(target_array):
             self._warm_start_with_ik(current_q, target_pos)
             self.prev_target = target_array.copy()
-        
+
         # Calculate adaptive exploration based on distance to target
         adaptive_sigma = self._calculate_adaptive_sigma(target_array)
-        
+
         # Calculate current distance to target for action scaling
         current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
         dist_to_target = np.linalg.norm(current_ee_pos - target_array)
-        
+
         # Generate noise for all rollouts
         noise = np.random.normal(0.0, adaptive_sigma, size=(self.K, self.H, self.config.ARM_DOF))
-        
+
         # Perform rollouts and calculate costs
         rollout_paths, collision_mask, costs = self._perform_rollouts(
             current_q, target_array, noise, target_body_id
         )
-        
+
         # Update control sequence using MPPI
         action = self._update_control_sequence(costs, noise)
-        
+
         # Scale down action when close to target to avoid overshoot
         # Use exponential decay: scale = 1.0 when far, approaches 0.1 when very close
         close_threshold = 0.1  # meters
         if dist_to_target < close_threshold:
             action_scale = 0.1 + 0.9 * (dist_to_target / close_threshold)
             action *= action_scale
-        
+
         # Visualize rollouts
         best_k = int(np.argmin(costs))
         self._draw_rollouts(paths=rollout_paths, collision_mask=collision_mask, best_k=best_k)
-        
+
         return action
-    
+
     def _should_reinitialize(self, target_array: np.ndarray) -> bool:
         """Check if control sequence should be re-initialized with IK."""
         if self.prev_target is None:
             return True
-        target_moved = np.linalg.norm(target_array - self.prev_target) > self.TARGET_CHANGE_THRESHOLD
+        target_moved = (
+            np.linalg.norm(target_array - self.prev_target) > self.TARGET_CHANGE_THRESHOLD
+        )
         return target_moved
-    
+
     def _calculate_adaptive_sigma(self, target_array: np.ndarray) -> float:
         """Calculate adaptive exploration noise based on distance to target."""
         current_ee_pos = np.array(p.getLinkState(self.robot_id, self.config.EE_LINK_INDEX)[0])
         dist_to_target = np.linalg.norm(current_ee_pos - target_array)
-        
+
         # Scale from SIGMA_MIN_FACTOR (close) to SIGMA_MAX_FACTOR (far)
-        scale_factor = self.SIGMA_MIN_FACTOR + (self.SIGMA_MAX_FACTOR - self.SIGMA_MIN_FACTOR) * \
-                      min(dist_to_target / self.ADAPTIVE_DISTANCE, 1.0)
-        
+        scale_factor = self.SIGMA_MIN_FACTOR + (
+            self.SIGMA_MAX_FACTOR - self.SIGMA_MIN_FACTOR
+        ) * min(dist_to_target / self.ADAPTIVE_DISTANCE, 1.0)
+
         return self.sigma * scale_factor
-    
+
     def _perform_rollouts(self, current_q, target_array, noise, target_body_id):
         """
         Perform K rollout simulations and calculate costs.
@@ -151,30 +154,30 @@ class MppiArmController:
                 # Exponential distance cost for stronger gradient near target
                 # exp(decay * dist) - 1 gives exponential growth, stronger near target
                 dist_cost = self.dist_weight * (np.exp(self.exp_decay_rate * dist) - 1.0)
-                
+
                 # Terminal cost: heavily penalize final state if far from target
                 if t == self.H - 1:
-                    terminal_cost = self.terminal_dist_weight * (np.exp(self.exp_decay_rate * dist) - 1.0)
+                    terminal_cost = self.terminal_dist_weight * (
+                        np.exp(self.exp_decay_rate * dist) - 1.0
+                    )
                     dist_cost += terminal_cost
-                
+
                 costs[k] += (
-                    dist_cost
-                    + (self.collision_cost if collided else 0.0)
-                    + self.jerk_weight * jerk
+                    dist_cost + (self.collision_cost if collided else 0.0) + self.jerk_weight * jerk
                 )
 
         # Restore the real world state
         p.restoreState(state_id)
         p.removeState(state_id)
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
-        
+
         return rollout_paths, collision_mask, costs
-    
+
     def _update_control_sequence(self, costs, noise):
         """Update control sequence using MPPI weighted average and return first action."""
         min_cost = float(np.min(costs))
         weights = np.exp(-(costs - min_cost) / self.lambda_)
-        weights /= (np.sum(weights) + 1e-10)
+        weights /= np.sum(weights) + 1e-10
 
         for t in range(self.H):
             self.U[t] += np.sum(weights[:, None] * noise[:, t, :], axis=0)
@@ -197,18 +200,20 @@ class MppiArmController:
             self.config.EE_LINK_INDEX,
             target_pos,
             maxNumIterations=100,
-            residualThreshold=0.001
+            residualThreshold=0.001,
         )
-        
+
         # Extract arm joints from IK solution
         target_q = np.array(ik_solution[self.config.ARM_OBS_SLICE])
-        
+
         # Clamp to joint limits
-        target_q = np.clip(target_q, self.config.ARM_JOINT_LIMITS_LOWER, self.config.ARM_JOINT_LIMITS_UPPER)
-        
+        target_q = np.clip(
+            target_q, self.config.ARM_JOINT_LIMITS_LOWER, self.config.ARM_JOINT_LIMITS_UPPER
+        )
+
         # Calculate velocity needed to reach target over the horizon
         delta_q = target_q - current_q
-        
+
         # Initialize control sequence with decaying velocities toward target
         for t in range(self.H):
             # Decay factor: move quickly initially, slower later
@@ -216,7 +221,7 @@ class MppiArmController:
             self.U[t] = (delta_q / (self.H * self.dt)) * decay
             # Clip to action limits
             self.U[t] = np.clip(self.U[t], -1.0, 1.0)
-        
+
         print(f"Warm-started MPPI: current_q={current_q.round(2)}, target_q={target_q.round(2)}")
 
     # -----------------------
@@ -289,7 +294,7 @@ class MppiArmController:
         # Reset arm joints
         for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
             p.resetJointState(self.robot_id, joint_idx, q[i])
-        
+
         # Reset grippers to closed (0 position)
         for gripper_idx in self.config.GRIPPER_JOINT_INDICES:
             p.resetJointState(self.robot_id, gripper_idx, 0.0)
@@ -302,6 +307,9 @@ class MppiArmController:
         for i, joint_idx in enumerate(self.config.ARM_JOINT_INDICES):
             curr = p.getJointState(self.robot_id, joint_idx)[0]
             new_pos = curr + u[i] * self.dt
-            new_pos = np.clip(new_pos, self.config.ARM_JOINT_LIMITS_LOWER[i], 
-                             self.config.ARM_JOINT_LIMITS_UPPER[i])
+            new_pos = np.clip(
+                new_pos,
+                self.config.ARM_JOINT_LIMITS_LOWER[i],
+                self.config.ARM_JOINT_LIMITS_UPPER[i],
+            )
             p.resetJointState(self.robot_id, joint_idx, new_pos)

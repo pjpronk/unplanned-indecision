@@ -25,8 +25,21 @@ class MppiArmController:
     ROLLOUT_STRIDE = 3
     DEBUG_LINE_LIFETIME = 0.2
 
-    def __init__(self, robot_id, robot_config, dt, horizon, n_samples, lambda_, sigma,
-                 dist_weight, terminal_dist_weight, collision_cost, jerk_weight, exp_decay_rate):
+    def __init__(
+        self,
+        robot_id,
+        robot_config,
+        dt,
+        horizon,
+        n_samples,
+        lambda_,
+        sigma,
+        dist_weight,
+        terminal_dist_weight,
+        collision_cost,
+        jerk_weight,
+        exp_decay_rate,
+    ):
         self.robot_id = robot_id
         self.config = robot_config
 

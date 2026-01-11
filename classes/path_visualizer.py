@@ -14,7 +14,7 @@ class PathVisualizer:
         Initialize the visualizer with static elements.
 
         Args:
-            obstacles_2d: List of 2D obstacle dictionaries from ObstacleManager
+            obstacles_2d: List of 2D obstacle dictionaries
             goal: Goal 2D position [x, y]
         """
         self.obstacles = obstacles_2d

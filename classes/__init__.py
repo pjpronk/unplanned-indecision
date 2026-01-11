@@ -1,4 +1,3 @@
-from .obstacle_manager import ObstacleManager
 from .path_follower import PathFollower
 from .rrt_smooth import RRTPlanner
 from .path_visualizer import PathVisualizer
@@ -10,7 +9,6 @@ from .mission_state_machine import MissionStateMachine, State
 from .mission_planner import MissionPlanner, MissionConfig
 
 __all__ = [
-    "ObstacleManager",
     "PathFollower",
     "RRTPlanner",
     "PathVisualizer",

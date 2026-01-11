@@ -265,7 +265,7 @@ class MissionStateMachine:
         from .rrt_smooth import RRTPlanner
         from .path_follower import PathFollower
         from .arm_controller import ArmController
-        from .mppi_arm_controller import MppiArmController
+        from .mppi_arm_controller_basic import MppiArmControllerBasic
 
         # Path planning for mobile base
         planner = RRTPlanner(
@@ -280,7 +280,7 @@ class MissionStateMachine:
         follower = PathFollower(forward_velocity=mission.forward_velocity, waypoint_threshold=0.1)
 
         # Arm controllers with injected robot config
-        mppi_ctrl = MppiArmController(robot_id=robot_id, robot_config=robot_config)
+        mppi_ctrl = MppiArmControllerBasic(robot_id=robot_id, robot_config=robot_config)
         safe_ctrl = ArmController(
             robot_id=robot_id, robot_config=robot_config, kp=15.0, max_vel=1.0
         )

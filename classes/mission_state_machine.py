@@ -1,5 +1,6 @@
 import numpy as np
 import pybullet as p
+import time
 from enum import Enum, auto
 from urdfenvs.robots.generic_urdf import GenericUrdfReacher
 from urdfenvs.urdf_common.urdf_env import UrdfEnv
@@ -42,6 +43,8 @@ class MissionStateMachine:
 
         # Initialize state machine
         self.current_mission_idx = 0
+        self.mppi_start_time = None
+        self.mppi_end_time = None
         if stationary_mode:
             self.state = State.REACH  # Skip directly to reaching
         else:
@@ -222,6 +225,34 @@ class MissionStateMachine:
             if "Collision" in info:
                 print(f"\nCollision at step {step}: {info['Collision']}")
 
+        self.mppi_end_time = time.time()
+        
+        # Print MPPI timing summary
+        if self.mppi_start_time is not None:
+            mppi_duration = self.mppi_end_time - self.mppi_start_time
+            print(f"\n{'='*60}")
+            print(f"MPPI Execution Summary")
+            print(f"{'='*60}")
+            print(f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration/60:.2f} minutes)")
+            print(f"Total simulation steps: {len(history)}")
+            if len(history) > 0:
+                print(f"Average time per step: {mppi_duration/len(history)*1000:.2f} ms")
+            print(f"{'='*60}\n")
+        
+        self.mppi_end_time = time.time()
+        
+        # Print MPPI timing summary
+        if self.mppi_start_time is not None:
+            mppi_duration = self.mppi_end_time - self.mppi_start_time
+            print(f"\n{'='*60}")
+            print(f"MPPI Execution Summary")
+            print(f"{'='*60}")
+            print(f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration/60:.2f} minutes)")
+            print(f"Total simulation steps: {len(history)}")
+            if len(history) > 0:
+                print(f"Average time per step: {mppi_duration/len(history)*1000:.2f} ms")
+            print(f"{'='*60}\n")
+        
         self.env.close()
         return history
 
@@ -337,6 +368,8 @@ class MissionStateMachine:
         elif self.state == State.REACH:
             if self.reach_steps == 0:
                 print(f"[REACH] Starting arm reach to target {mission.arm_goal_3d}")
+                self.mppi_start_time = time.time()
+                self.mppi_start_time = time.time()
 
             # Base stays still during reach
             action[self.robot_config.base_slice] = 0.0

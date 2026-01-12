@@ -159,16 +159,41 @@ class PlaygroundEnv:
                 },
                 "rgba": [0.3, 0.3, 0.7, 1.0],
             }
+
+            vertical_block = {
+                "type": "box",
+                "movable": False,
+                "geometry": {
+                    "position": [0.5, -0.4, 0.5],
+                    "width": 0.4,  # thin in x direction
+                    "height": 0.2,  # tall in z direction
+                    "length": 0.2,  # long in y direction
+                },
+                "rgba": [0.3, 0.3, 0.7, 1.0],
+            }
+
+            # vertical_block = {
+            #     "type": "box",
+            #     "movable": False,
+            #     "geometry": {
+            #         "position": [0.5, -0.4, 0.5],
+            #         "width": 1.4,  # thin in x direction
+            #         "height": 0.02,  # tall in z direction
+            #         "length": 0.3,  # long in y direction
+            #     },
+            #     "rgba": [0.3, 0.3, 0.7, 1.0],
+            # }
+
             block_obs = BoxObstacle(name="vertical_block", content_dict=vertical_block)
             self.obstacles_3d.append(block_obs)
             self.env.add_obstacle(block_obs)
 
             # Target on left side of block (negative y)
-            target_left = [0.4, -0.4, 0.5]
+            target_left = [0.4, -0.4, 0.2]
             self.goals.append(tuple(target_left))
 
             # Target on right side of block (positive y)
-            target_right = [0.4, 0.4, 0.5]
+            target_right = [0.4, 0.4, 0.8]
             self.goals.append(tuple(target_right))
 
     def _create_lego_pile(self):

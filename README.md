@@ -43,7 +43,7 @@ The project follows a modular architecture with clear separation of concerns:
 ### Core Components
 
 - **MissionStateMachine**: Central orchestrator managing state transitions (TUCK, DRIVE, REACH) and coordinating all subsystems
-- **PlaygroundEnv**: Environment manager that creates obstacles and provides both 3D simulation and 2D obstacle data
+- **PlaygroundEnv**: Environment manager that creates obstacles and provides 2D obstacle data
 - **MissionPlanner**: Computes safe base positions and creates mission configurations from environment goals
 - **RRTPlanner**: Pure path planning component (Simple/Smooth/Star variants) that computes collision-free paths using RRT algorithms
 - **PathFollower**: Control component that generates base velocity commands to follow a given path

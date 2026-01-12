@@ -65,6 +65,15 @@ class MissionStateMachine:
             num_sub_steps=self.scenario_config.num_sub_steps,
         )
 
+        if self.scenario_config.render:
+            # Set camera position from config
+            p.resetDebugVisualizerCamera(
+                cameraDistance=self.scenario_config.camera.distance,
+                cameraYaw=self.scenario_config.camera.yaw,
+                cameraPitch=self.scenario_config.camera.pitch,
+                cameraTargetPosition=list(self.scenario_config.camera.target_position)
+            )
+
         # Create obstacle manager and populate environment
         playground = PlaygroundEnv(
             env=self.env,

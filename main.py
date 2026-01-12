@@ -151,6 +151,16 @@ class RobotConfig:
 
 
 @dataclass
+class CameraConfig:
+    """PyBullet camera configuration"""
+
+    distance: float = 2.0
+    yaw: float = 90.0
+    pitch: float = -25.0
+    target_position: tuple = (0.0, 0.0, 0.0)
+
+
+@dataclass
 class ScenarioConfig:
     """Environment and simulation scenario configuration"""
 
@@ -163,6 +173,7 @@ class ScenarioConfig:
     end_pos: tuple = (9.0, 4.5, 0.0)
     show_path_plots: bool = True
     show_initial_environment: bool = True
+    camera: CameraConfig = field(default_factory=CameraConfig)
 
 
 class ConfigPresets:

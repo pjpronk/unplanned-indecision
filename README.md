@@ -6,7 +6,7 @@
 
 # PDM Group 36 | Undecided Indecision
 
-Welcome to the Planning and Decision making repo of Group 36. Here you will find the solution for the final project. Happy reading!
+Welcome to the Planning and Decision Making repo of Group 36. Here you will find the solution for the final project. Happy reading!
 
 ## Running the examples
 

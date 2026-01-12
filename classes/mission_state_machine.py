@@ -309,6 +309,9 @@ class MissionStateMachine:
                     title=f"Mission {self.current_mission_idx + 1} Path",
                 )
 
+            # Reset path follower for new mission
+            self.follower.reset()
+            
             # Transition to TUCK state for new mission
             self.state = State.TUCK
             self.tuck_steps = 0

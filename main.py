@@ -294,7 +294,7 @@ class ConfigPresets:
 
 
 if __name__ == "__main__":
-    robot_cfg, scenario_cfg = ConfigPresets.mppi_basic_test() #mppi_advanced_test()
+    robot_cfg, scenario_cfg = ConfigPresets.mppi_advanced_test()
 
     # Determine if stationary mode based on playground type
     stationary_mode = scenario_cfg.playground_type == PlaygroundType.MPPI_TEST

@@ -7,8 +7,9 @@ class MppiArmController:
     MPPI controller for a 7-DoF arm using a kinematic rollout model in PyBullet.
 
     - Rollouts are performed by resetting joint states (no dynamics).
-    - Cost = exponential distance-to-target + terminal cost + collision penalty + jerk penalty.
+    - Cost = linear distance-to-target + terminal cost + collision penalty + jerk penalty.
     - Actions are scaled down when close to target to prevent overshoot.
+    - IK warm-start and adaptive exploration for improved performance.
     - Draws the best rollout (green) + a few colliding rollouts (red).
     """
 
@@ -158,25 +159,21 @@ class MppiArmController:
 
                 if collided:
                     collision_mask[k] = True
-                    if k == 0:  # Only print for first rollout
-                        print(f"CRASH: Hit object ID {hit_body_id}")
 
                 jerk = np.linalg.norm(u_t - u_prev)
                 u_prev = u_t
 
-                # Exponential distance cost for stronger gradient near target
-                # exp(decay * dist) - 1 gives exponential growth, stronger near target
-                dist_cost = self.dist_weight * (np.exp(self.exp_decay_rate * dist) - 1.0)
-
-                # Terminal cost: heavily penalize final state if far from target
+                # Linear distance cost (simpler, better for obstacle avoidance)
+                dist_cost = self.dist_weight * dist
+                
+                # Terminal cost: extra penalty for final state if far from target
                 if t == self.H - 1:
-                    terminal_cost = self.terminal_dist_weight * (
-                        np.exp(self.exp_decay_rate * dist) - 1.0
-                    )
-                    dist_cost += terminal_cost
+                    dist_cost += self.terminal_dist_weight * dist
 
                 costs[k] += (
-                    dist_cost + (self.collision_cost if collided else 0.0) + self.jerk_weight * jerk
+                    dist_cost
+                    + (self.collision_cost if collided else 0.0)
+                    + self.jerk_weight * jerk
                 )
 
         # Restore the real world state

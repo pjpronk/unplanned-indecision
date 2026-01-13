@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/albert.gif" alt="An moving image of the albert robot">
+  <img src="images/baby.gif" alt="An moving image of the albert robot">
 </p>
 
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)

@@ -56,7 +56,7 @@ class MissionPlanner:
         """
 
         goal_2d = np.array(goal[:2])
-        safe_radius = self.robot_radius + 0.3
+        safe_radius = self.robot_radius + 0.5
 
         # Front-biased sampling (relative to world x-axis)
         angles = np.linspace(-np.pi / 2, np.pi / 2, 15)

@@ -165,15 +165,13 @@ class MppiArmController:
 
                 # Linear distance cost (simpler, better for obstacle avoidance)
                 dist_cost = self.dist_weight * dist
-                
+
                 # Terminal cost: extra penalty for final state if far from target
                 if t == self.H - 1:
                     dist_cost += self.terminal_dist_weight * dist
 
                 costs[k] += (
-                    dist_cost
-                    + (self.collision_cost if collided else 0.0)
-                    + self.jerk_weight * jerk
+                    dist_cost + (self.collision_cost if collided else 0.0) + self.jerk_weight * jerk
                 )
 
         # Restore the real world state

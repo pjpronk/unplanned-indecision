@@ -74,7 +74,7 @@ class MissionStateMachine:
                 cameraDistance=self.scenario_config.camera.distance,
                 cameraYaw=self.scenario_config.camera.yaw,
                 cameraPitch=self.scenario_config.camera.pitch,
-                cameraTargetPosition=list(self.scenario_config.camera.target_position)
+                cameraTargetPosition=list(self.scenario_config.camera.target_position),
             )
 
         # Create obstacle manager and populate environment
@@ -235,33 +235,37 @@ class MissionStateMachine:
                 print(f"\nCollision at step {step}: {info['Collision']}")
 
         self.mppi_end_time = time.time()
-        
+
         # Print MPPI timing summary
         if self.mppi_start_time is not None:
             mppi_duration = self.mppi_end_time - self.mppi_start_time
-            print(f"\n{'='*60}")
-            print(f"MPPI Execution Summary")
-            print(f"{'='*60}")
-            print(f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration/60:.2f} minutes)")
+            print(f"\n{'=' * 60}")
+            print("MPPI Execution Summary")
+            print(f"{'=' * 60}")
+            print(
+                f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration / 60:.2f} minutes)"
+            )
             print(f"Total simulation steps: {len(history)}")
             if len(history) > 0:
-                print(f"Average time per step: {mppi_duration/len(history)*1000:.2f} ms")
-            print(f"{'='*60}\n")
-        
+                print(f"Average time per step: {mppi_duration / len(history) * 1000:.2f} ms")
+            print(f"{'=' * 60}\n")
+
         self.mppi_end_time = time.time()
-        
+
         # Print MPPI timing summary
         if self.mppi_start_time is not None:
             mppi_duration = self.mppi_end_time - self.mppi_start_time
-            print(f"\n{'='*60}")
-            print(f"MPPI Execution Summary")
-            print(f"{'='*60}")
-            print(f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration/60:.2f} minutes)")
+            print(f"\n{'=' * 60}")
+            print("MPPI Execution Summary")
+            print(f"{'=' * 60}")
+            print(
+                f"Total MPPI time: {mppi_duration:.2f} seconds ({mppi_duration / 60:.2f} minutes)"
+            )
             print(f"Total simulation steps: {len(history)}")
             if len(history) > 0:
-                print(f"Average time per step: {mppi_duration/len(history)*1000:.2f} ms")
-            print(f"{'='*60}\n")
-        
+                print(f"Average time per step: {mppi_duration / len(history) * 1000:.2f} ms")
+            print(f"{'=' * 60}\n")
+
         self.env.close()
         return history
 
@@ -311,7 +315,7 @@ class MissionStateMachine:
 
             # Reset path follower for new mission
             self.follower.reset()
-            
+
             # Transition to TUCK state for new mission
             self.state = State.TUCK
             self.tuck_steps = 0

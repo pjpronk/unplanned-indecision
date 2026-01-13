@@ -242,7 +242,7 @@ class ConfigPresets:
 
         scenario = ScenarioConfig()
         scenario.name = "optimal_star"
-        scenario.playground_type = PlaygroundType.HARD
+        scenario.playground_type = PlaygroundType.EASY
         scenario.render = True
 
         return robot, scenario
@@ -294,7 +294,7 @@ class ConfigPresets:
 
 
 if __name__ == "__main__":
-    robot_cfg, scenario_cfg = ConfigPresets.mppi_advanced_test()
+    robot_cfg, scenario_cfg = ConfigPresets.optimal_star()
 
     # Determine if stationary mode based on playground type
     stationary_mode = scenario_cfg.playground_type == PlaygroundType.MPPI_TEST
